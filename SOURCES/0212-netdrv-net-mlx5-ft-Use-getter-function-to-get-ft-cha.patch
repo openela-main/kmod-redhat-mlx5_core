@@ -1,0 +1,97 @@
+From 23f752e697e5b1d68d0e2ccf5fc7679a62211fbd Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:48:33 -0400
+Subject: [PATCH 212/312] [netdrv] net/mlx5: ft: Use getter function to get ft
+ chain
+
+Message-id: <20200519074934.6303-3-ahleihel@redhat.com>
+Patchwork-id: 310504
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 02/63] net/mlx5: ft: Use getter function to get ft chain
+Bugzilla: 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Upstream: v5.6-rc1
+
+commit e66cbc961cfe375f977b3bfae13abec4df8c8521
+Author: Paul Blakey <paulb@mellanox.com>
+Date:   Tue Nov 26 14:13:42 2019 +0200
+
+    net/mlx5: ft: Use getter function to get ft chain
+
+    FT chain is defined as the next chain after tc.
+
+    To prepare for next patches that will increase the number of tc
+    chains available at runtime, use a getter function to get this
+    value.
+
+    The define is still used in static fs_core allocation,
+    to calculate the number of chains. This static allocation
+    will be used if the relevant capabilities won't be available
+    to support dynamic chains.
+
+    Signed-off-by: Paul Blakey <paulb@mellanox.com>
+    Reviewed-by: Roi Dayan <roid@mellanox.com>
+    Reviewed-by: Mark Bloch <markb@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c           | 2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h          | 3 +++
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c | 5 +++++
+ 3 files changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index d03d80e162df..406fb642f2d4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -1244,7 +1244,7 @@ static int mlx5e_rep_setup_ft_cb(enum tc_setup_type type, void *type_data,
+ 		 * reserved ft chain.
+ 		 */
+ 		memcpy(&cls_flower, f, sizeof(*f));
+-		cls_flower.common.chain_index = FDB_FT_CHAIN;
++		cls_flower.common.chain_index = mlx5_eswitch_get_ft_chain(esw);
+ 		err = mlx5e_rep_setup_tc_cls_flower(priv, &cls_flower, flags);
+ 		memcpy(&f->stats, &cls_flower.stats, sizeof(f->stats));
+ 		return err;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index 14814f41346e..90995ab7e1a8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -387,6 +387,9 @@ mlx5_eswitch_get_prio_range(struct mlx5_eswitch *esw);
+ u32
+ mlx5_eswitch_get_chain_range(struct mlx5_eswitch *esw);
+ 
++unsigned int
++mlx5_eswitch_get_ft_chain(struct mlx5_eswitch *esw);
++
+ struct mlx5_flow_handle *
+ mlx5_eswitch_create_vport_rx_rule(struct mlx5_eswitch *esw, u16 vport,
+ 				  struct mlx5_flow_destination *dest);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 9837baba3b8b..bd750f069e6c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -80,6 +80,11 @@ u32 mlx5_eswitch_get_chain_range(struct mlx5_eswitch *esw)
+ 	return 0;
+ }
+ 
++u32 mlx5_eswitch_get_ft_chain(struct mlx5_eswitch *esw)
++{
++	return mlx5_eswitch_get_chain_range(esw) + 1;
++}
++
+ u16 mlx5_eswitch_get_prio_range(struct mlx5_eswitch *esw)
+ {
+ 	if (esw->fdb_table.flags & ESW_FDB_CHAINS_AND_PRIOS_SUPPORTED)
+-- 
+2.13.6
+

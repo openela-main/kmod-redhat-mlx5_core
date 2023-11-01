@@ -1,0 +1,70 @@
+From 09fcb7d18730125efb79e138f424e4fa5dea6b67 Mon Sep 17 00:00:00 2001
+From: Marcelo Leitner <mleitner@redhat.com>
+Date: Thu, 21 May 2020 03:55:13 -0400
+Subject: [PATCH 308/312] [include] netfilter: fix include guards.
+
+Message-id: <6d269112c4be0c94fc1c7ae4aaf220187c783ea6.1590033302.git.mleitner@redhat.com>
+Patchwork-id: 313056
+Patchwork-instance: patchwork
+O-Subject: [RHEL-8.3 net 2/2] netfilter: fix include guards.
+Bugzilla: 1837856
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Florian Westphal <fwestpha@redhat.com>
+
+Godzilla: https://bugzilla.redhat.com/show_bug.cgi?id=1837856
+Build Info: https://brewweb.engineering.redhat.com/brew/taskinfo?taskID=28732649
+Conflicts: missing chunk was backported as part of bz1811193
+
+commit 0286fbc624e2842ececb853e74645b479b55f0a3
+Author: Jeremy Sowden <jeremy@azazel.net>
+Date:   Fri Sep 13 09:13:01 2019 +0100
+
+    netfilter: fix include guards.
+
+    nf_conntrack_labels.h has no include guard.  Add it.
+
+    The comment following the #endif in the nf_flow_table.h include guard
+    referred to the wrong macro.  Fix it.
+
+    Signed-off-by: Jeremy Sowden <jeremy@azazel.net>
+    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+
+Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Signed-off-by: Timothy Redaelli <tredaelli@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ include/net/netfilter/nf_conntrack_labels.h | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/include/net/netfilter/nf_conntrack_labels.h b/include/net/netfilter/nf_conntrack_labels.h
+index 4eacce6f3bcc..ba916411c4e1 100644
+--- a/include/net/netfilter/nf_conntrack_labels.h
++++ b/include/net/netfilter/nf_conntrack_labels.h
+@@ -1,11 +1,14 @@
+ /* SPDX-License-Identifier: GPL-2.0 */
+-#include <linux/types.h>
+-#include <net/net_namespace.h>
++
++#ifndef _NF_CONNTRACK_LABELS_H
++#define _NF_CONNTRACK_LABELS_H
++
+ #include <linux/netfilter/nf_conntrack_common.h>
+ #include <linux/netfilter/nf_conntrack_tuple_common.h>
++#include <linux/types.h>
++#include <net/net_namespace.h>
+ #include <net/netfilter/nf_conntrack.h>
+ #include <net/netfilter/nf_conntrack_extend.h>
+-
+ #include <uapi/linux/netfilter/xt_connlabel.h>
+ 
+ #define NF_CT_LABELS_MAX_SIZE ((XT_CONNLABEL_MAXBIT + 1) / BITS_PER_BYTE)
+@@ -51,3 +54,5 @@ static inline void nf_conntrack_labels_fini(void) {}
+ static inline int nf_connlabels_get(struct net *net, unsigned int bit) { return 0; }
+ static inline void nf_connlabels_put(struct net *net) {}
+ #endif
++
++#endif /* _NF_CONNTRACK_LABELS_H */
+-- 
+2.13.6
+

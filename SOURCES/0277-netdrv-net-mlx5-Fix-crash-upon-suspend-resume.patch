@@ -1,0 +1,81 @@
+From 0af2635530b4c17d9ce60f26d0f0285851c22ec1 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Mon, 1 Jun 2020 15:40:29 -0400
+Subject: [PATCH 277/312] [netdrv] net/mlx5: Fix crash upon suspend/resume
+
+Message-id: <20200601154102.25980-7-ahleihel@redhat.com>
+Patchwork-id: 315711
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1842258 06/39] net/mlx5: Fix crash upon suspend/resume
+Bugzilla: 1842258 1841973
+RH-Acked-by: Honggang Li <honli@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1842258
+Bugzilla: http://bugzilla.redhat.com/1841973
+Upstream: v5.7
+
+commit 8fc3e29be9248048f449793502c15af329f35c6e
+Author: Mark Bloch <markb@mellanox.com>
+Date:   Wed May 20 17:32:08 2020 +0000
+
+    net/mlx5: Fix crash upon suspend/resume
+
+    Currently a Linux system with the mlx5 NIC always crashes upon
+    hibernation - suspend/resume.
+
+    Add basic callbacks so the NIC could be suspended and resumed.
+
+    Fixes: 9603b61de1ee ("mlx5: Move pci device handling from mlx5_ib to mlx5_core")
+    Tested-by: Dexuan Cui <decui@microsoft.com>
+    Signed-off-by: Mark Bloch <markb@mellanox.com>
+    Reviewed-by: Moshe Shemesh <moshe@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/main.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index f575f684ad78..880bc53d0b1b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -1562,6 +1562,22 @@ static void shutdown(struct pci_dev *pdev)
+ 	mlx5_pci_disable_device(dev);
+ }
+ 
++static int mlx5_suspend(struct pci_dev *pdev, pm_message_t state)
++{
++	struct mlx5_core_dev *dev = pci_get_drvdata(pdev);
++
++	mlx5_unload_one(dev, false);
++
++	return 0;
++}
++
++static int mlx5_resume(struct pci_dev *pdev)
++{
++	struct mlx5_core_dev *dev = pci_get_drvdata(pdev);
++
++	return mlx5_load_one(dev, false);
++}
++
+ static const struct pci_device_id mlx5_core_pci_table[] = {
+ 	{ PCI_VDEVICE(MELLANOX, PCI_DEVICE_ID_MELLANOX_CONNECTIB) },
+ 	{ PCI_VDEVICE(MELLANOX, 0x1012), MLX5_PCI_DEV_IS_VF},	/* Connect-IB VF */
+@@ -1605,6 +1621,8 @@ static struct pci_driver mlx5_core_driver = {
+ 	.id_table       = mlx5_core_pci_table,
+ 	.probe          = init_one,
+ 	.remove         = remove_one,
++	.suspend        = mlx5_suspend,
++	.resume         = mlx5_resume,
+ 	.shutdown	= shutdown,
+ 	.err_handler	= &mlx5_err_handler,
+ 	.sriov_configure   = mlx5_core_sriov_configure,
+-- 
+2.13.6
+

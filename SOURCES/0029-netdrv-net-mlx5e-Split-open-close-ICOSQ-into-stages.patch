@@ -1,0 +1,159 @@
+From 3f66afcb58cbade919b064a2eee38d35bd9c64ad Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:51:53 -0400
+Subject: [PATCH 029/312] [netdrv] net/mlx5e: Split open/close ICOSQ into
+ stages
+
+Message-id: <20200510145245.10054-31-ahleihel@redhat.com>
+Patchwork-id: 306572
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 30/82] net/mlx5e: Split open/close ICOSQ into stages
+Bugzilla: 1790198 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Bugzilla: http://bugzilla.redhat.com/1790198
+Upstream: v5.4-rc1
+Conflicts:
+ - drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+   drivers/net/ethernet/mellanox/mlx5/core/en.h
+   Take a couple of hunks from this commit to fix incremental build:
+   be5323c8379f ("net/mlx5e: Report and recover from CQE error on ICOSQ")
+   ---> Expose function mlx5e_(de)activate_icosq to be used in other files.
+
+commit 9d18b5144a0a850e722e7c3d7b700eb1fba7b7e2
+Author: Aya Levin <ayal@mellanox.com>
+Date:   Tue Jul 2 15:47:29 2019 +0300
+
+    net/mlx5e: Split open/close ICOSQ into stages
+
+    Align ICOSQ open/close behaviour with RQ and SQ. Split open flow into
+    open and activate where open handles creation and activate enables the
+    queue. Do a symmetric thing in close flow: split into close and
+    deactivate.
+
+    Signed-off-by: Aya Levin <ayal@mellanox.com>
+    Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+    Acked-by: Jiri Pirko <jiri@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h          |  2 ++
+ .../net/ethernet/mellanox/mlx5/core/en/xsk/setup.c    |  2 ++
+ drivers/net/ethernet/mellanox/mlx5/core/en/xsk/tx.c   |  7 +++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c     | 19 +++++++++++++++----
+ 4 files changed, 26 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 3ba2dec04137..21926cb209f9 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -1037,6 +1037,8 @@ void mlx5e_set_rx_cq_mode_params(struct mlx5e_params *params,
+ void mlx5e_set_rq_type(struct mlx5_core_dev *mdev, struct mlx5e_params *params);
+ void mlx5e_init_rq_type_params(struct mlx5_core_dev *mdev,
+ 			       struct mlx5e_params *params);
++void mlx5e_activate_icosq(struct mlx5e_icosq *icosq);
++void mlx5e_deactivate_icosq(struct mlx5e_icosq *icosq);
+ 
+ int mlx5e_modify_sq(struct mlx5_core_dev *mdev, u32 sqn,
+ 		    struct mlx5e_modify_sq_param *p);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/xsk/setup.c b/drivers/net/ethernet/mellanox/mlx5/core/en/xsk/setup.c
+index 79060ee60c98..c28cbae42331 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/xsk/setup.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/xsk/setup.c
+@@ -156,6 +156,7 @@ void mlx5e_close_xsk(struct mlx5e_channel *c)
+ 
+ void mlx5e_activate_xsk(struct mlx5e_channel *c)
+ {
++	mlx5e_activate_icosq(&c->xskicosq);
+ 	set_bit(MLX5E_RQ_STATE_ENABLED, &c->xskrq.state);
+ 	/* TX queue is created active. */
+ 
+@@ -168,6 +169,7 @@ void mlx5e_deactivate_xsk(struct mlx5e_channel *c)
+ {
+ 	mlx5e_deactivate_rq(&c->xskrq);
+ 	/* TX queue is disabled on close. */
++	mlx5e_deactivate_icosq(&c->xskicosq);
+ }
+ 
+ static int mlx5e_redirect_xsk_rqt(struct mlx5e_priv *priv, u16 ix, u32 rqn)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/xsk/tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en/xsk/tx.c
+index 19ae0e28fead..03abb8cb96be 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/xsk/tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/xsk/tx.c
+@@ -26,6 +26,13 @@ int mlx5e_xsk_async_xmit(struct net_device *dev, u32 qid)
+ 		return -ENXIO;
+ 
+ 	if (!napi_if_scheduled_mark_missed(&c->napi)) {
++		/* To avoid WQE overrun, don't post a NOP if XSKICOSQ is not
++		 * active and not polled by NAPI. Return 0, because the upcoming
++		 * activate will trigger the IRQ for us.
++		 */
++		if (unlikely(!test_bit(MLX5E_SQ_STATE_ENABLED, &c->xskicosq.state)))
++			return 0;
++
+ 		spin_lock(&c->xskicosq_lock);
+ 		mlx5e_trigger_irq(&c->xskicosq);
+ 		spin_unlock(&c->xskicosq_lock);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index d78f60bc86ff..7dde1be49f35 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1369,7 +1369,6 @@ int mlx5e_open_icosq(struct mlx5e_channel *c, struct mlx5e_params *params,
+ 	csp.cqn             = sq->cq.mcq.cqn;
+ 	csp.wq_ctrl         = &sq->wq_ctrl;
+ 	csp.min_inline_mode = params->tx_min_inline_mode;
+-	set_bit(MLX5E_SQ_STATE_ENABLED, &sq->state);
+ 	err = mlx5e_create_sq_rdy(c->mdev, param, &csp, &sq->sqn);
+ 	if (err)
+ 		goto err_free_icosq;
+@@ -1382,12 +1381,22 @@ int mlx5e_open_icosq(struct mlx5e_channel *c, struct mlx5e_params *params,
+ 	return err;
+ }
+ 
+-void mlx5e_close_icosq(struct mlx5e_icosq *sq)
++void mlx5e_activate_icosq(struct mlx5e_icosq *icosq)
+ {
+-	struct mlx5e_channel *c = sq->channel;
++	set_bit(MLX5E_SQ_STATE_ENABLED, &icosq->state);
++}
+ 
+-	clear_bit(MLX5E_SQ_STATE_ENABLED, &sq->state);
++void mlx5e_deactivate_icosq(struct mlx5e_icosq *icosq)
++{
++	struct mlx5e_channel *c = icosq->channel;
++
++	clear_bit(MLX5E_SQ_STATE_ENABLED, &icosq->state);
+ 	napi_synchronize(&c->napi);
++}
++
++void mlx5e_close_icosq(struct mlx5e_icosq *sq)
++{
++	struct mlx5e_channel *c = sq->channel;
+ 
+ 	mlx5e_destroy_sq(c->mdev, sq->sqn);
+ 	mlx5e_free_icosq(sq);
+@@ -1971,6 +1980,7 @@ static void mlx5e_activate_channel(struct mlx5e_channel *c)
+ 
+ 	for (tc = 0; tc < c->num_tc; tc++)
+ 		mlx5e_activate_txqsq(&c->sq[tc]);
++	mlx5e_activate_icosq(&c->icosq);
+ 	mlx5e_activate_rq(&c->rq);
+ 	netif_set_xps_queue(c->netdev, c->xps_cpumask, c->ix);
+ 
+@@ -1986,6 +1996,7 @@ static void mlx5e_deactivate_channel(struct mlx5e_channel *c)
+ 		mlx5e_deactivate_xsk(c);
+ 
+ 	mlx5e_deactivate_rq(&c->rq);
++	mlx5e_deactivate_icosq(&c->icosq);
+ 	for (tc = 0; tc < c->num_tc; tc++)
+ 		mlx5e_deactivate_txqsq(&c->sq[tc]);
+ }
+-- 
+2.13.6
+

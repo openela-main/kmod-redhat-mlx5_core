@@ -1,0 +1,59 @@
+From a88b00c14457d1a833ee903803b1c6e094fb4bd0 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:04:47 -0400
+Subject: [PATCH 122/312] [netdrv] net/mlx5: Fix lowest FDB pool size
+
+Message-id: <20200510150452.10307-83-ahleihel@redhat.com>
+Patchwork-id: 306706
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 82/87] net/mlx5: Fix lowest FDB pool size
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5
+
+commit 93b8a7ecb7287cc9b0196f12a25b57c2462d11dc
+Author: Paul Blakey <paulb@mellanox.com>
+Date:   Tue Dec 31 17:04:15 2019 +0200
+
+    net/mlx5: Fix lowest FDB pool size
+
+    The pool sizes represent the pool sizes in the fw. when we request
+    a pool size from fw, it will return the next possible group.
+    We track how many pools the fw has left and start requesting groups
+    from the big to the small.
+    When we start request 4k group, which doesn't exists in fw, fw
+    wants to allocate the next possible size, 64k, but will fail since
+    its exhausted. The correct smallest pool size in fw is 128 and not 4k.
+
+    Fixes: e52c28024008 ("net/mlx5: E-Switch, Add chains and priorities")
+    Signed-off-by: Paul Blakey <paulb@mellanox.com>
+    Reviewed-by: Roi Dayan <roid@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 121abcae993a..9d2d850463bb 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -866,7 +866,7 @@ static int esw_add_fdb_miss_rule(struct mlx5_eswitch *esw)
+  */
+ #define ESW_SIZE (16 * 1024 * 1024)
+ const unsigned int ESW_POOLS[4] = { 4 * 1024 * 1024, 1 * 1024 * 1024,
+-				    64 * 1024, 4 * 1024 };
++				    64 * 1024, 128 };
+ 
+ static int
+ get_sz_from_pool(struct mlx5_eswitch *esw)
+-- 
+2.13.6
+

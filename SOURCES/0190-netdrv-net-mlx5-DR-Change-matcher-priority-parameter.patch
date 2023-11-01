@@ -1,0 +1,106 @@
+From 4163cbaa64b327db085ef2c4d389e388097ef093 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:55:06 -0400
+Subject: [PATCH 190/312] [netdrv] net/mlx5: DR, Change matcher priority
+ parameter type
+
+Message-id: <20200512105530.4207-101-ahleihel@redhat.com>
+Patchwork-id: 306971
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 100/124] net/mlx5: DR, Change matcher priority parameter type
+Bugzilla: 1789384 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Bugzilla: http://bugzilla.redhat.com/1789384
+Upstream: v5.7-rc1
+
+commit f64092997fcd772068ad1edb3ef04d9e69243aa1
+Author: Hamdan Igbaria <hamdani@mellanox.com>
+Date:   Mon Feb 17 15:53:20 2020 +0200
+
+    net/mlx5: DR, Change matcher priority parameter type
+
+    Change matcher priority parameter type from u16 to u32,
+    this change is needed since sometimes upper levels
+    create a matcher with priority bigger than 2^16.
+
+    Signed-off-by: Hamdan Igbaria <hamdani@mellanox.com>
+    Reviewed-by: Alex Vesker <valex@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/steering/dr_matcher.c | 2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/steering/dr_types.h   | 2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/steering/fs_dr.c      | 2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/steering/mlx5dr.h     | 4 ++--
+ 4 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_matcher.c b/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_matcher.c
+index c6dbd856df94..2ecec4429070 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_matcher.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_matcher.c
+@@ -671,7 +671,7 @@ static int dr_matcher_init(struct mlx5dr_matcher *matcher,
+ 
+ struct mlx5dr_matcher *
+ mlx5dr_matcher_create(struct mlx5dr_table *tbl,
+-		      u16 priority,
++		      u32 priority,
+ 		      u8 match_criteria_enable,
+ 		      struct mlx5dr_match_parameters *mask)
+ {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_types.h b/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_types.h
+index dffe35145d19..3fa739951b34 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_types.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_types.h
+@@ -705,7 +705,7 @@ struct mlx5dr_matcher {
+ 	struct mlx5dr_matcher_rx_tx rx;
+ 	struct mlx5dr_matcher_rx_tx tx;
+ 	struct list_head matcher_list;
+-	u16 prio;
++	u32 prio;
+ 	struct mlx5dr_match_param mask;
+ 	u8 match_criteria;
+ 	refcount_t refcount;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/steering/fs_dr.c b/drivers/net/ethernet/mellanox/mlx5/core/steering/fs_dr.c
+index c2027192e21e..d12d3a2d46ab 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/steering/fs_dr.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/steering/fs_dr.c
+@@ -140,7 +140,7 @@ static int mlx5_cmd_dr_create_flow_group(struct mlx5_flow_root_namespace *ns,
+ 					 struct mlx5_flow_group *fg)
+ {
+ 	struct mlx5dr_matcher *matcher;
+-	u16 priority = MLX5_GET(create_flow_group_in, in,
++	u32 priority = MLX5_GET(create_flow_group_in, in,
+ 				start_flow_index);
+ 	u8 match_criteria_enable = MLX5_GET(create_flow_group_in,
+ 					    in,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/steering/mlx5dr.h b/drivers/net/ethernet/mellanox/mlx5/core/steering/mlx5dr.h
+index e1edc9c247b7..e09e4ea1b045 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/steering/mlx5dr.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/steering/mlx5dr.h
+@@ -59,7 +59,7 @@ u32 mlx5dr_table_get_id(struct mlx5dr_table *table);
+ 
+ struct mlx5dr_matcher *
+ mlx5dr_matcher_create(struct mlx5dr_table *table,
+-		      u16 priority,
++		      u32 priority,
+ 		      u8 match_criteria_enable,
+ 		      struct mlx5dr_match_parameters *mask);
+ 
+@@ -151,7 +151,7 @@ mlx5dr_table_get_id(struct mlx5dr_table *table) { return 0; }
+ 
+ static inline struct mlx5dr_matcher *
+ mlx5dr_matcher_create(struct mlx5dr_table *table,
+-		      u16 priority,
++		      u32 priority,
+ 		      u8 match_criteria_enable,
+ 		      struct mlx5dr_match_parameters *mask) { return NULL; }
+ 
+-- 
+2.13.6
+

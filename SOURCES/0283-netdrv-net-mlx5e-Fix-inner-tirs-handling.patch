@@ -1,0 +1,157 @@
+From ed01318b69be279cdb29591d04d8751d28e0b5b8 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Mon, 1 Jun 2020 15:40:36 -0400
+Subject: [PATCH 283/312] [netdrv] net/mlx5e: Fix inner tirs handling
+
+Message-id: <20200601154102.25980-14-ahleihel@redhat.com>
+Patchwork-id: 315719
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1842258 13/39] net/mlx5e: Fix inner tirs handling
+Bugzilla: 1842258
+RH-Acked-by: Honggang Li <honli@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1842258
+Upstream: v5.7-rc7
+
+commit a16b8e0dcf7043bee46174bed0553cc9e36b63a5
+Author: Roi Dayan <roid@mellanox.com>
+Date:   Thu Apr 30 09:16:01 2020 +0300
+
+    net/mlx5e: Fix inner tirs handling
+
+    In the cited commit inner_tirs argument was added to create and destroy
+    inner tirs, and no indication was added to mlx5e_modify_tirs_hash()
+    function. In order to have a consistent handling, use
+    inner_indir_tir[0].tirn in tirs destroy/modify function as an indication
+    to whether inner tirs are created.
+    Inner tirs are not created for representors and before this commit,
+    a call to mlx5e_modify_tirs_hash() was sending HW commands to
+    modify non-existent inner tirs.
+
+    Fixes: 46dc933cee82 ("net/mlx5e: Provide explicit directive if to create inner indirect tirs")
+    Signed-off-by: Roi Dayan <roid@mellanox.com>
+    Reviewed-by: Vlad Buslov <vladbu@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h          |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c     | 12 +++++++-----
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c      |  4 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c |  4 ++--
+ 4 files changed, 12 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 09c9f8c0ef48..ab0985099444 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -1109,7 +1109,7 @@ void mlx5e_close_drop_rq(struct mlx5e_rq *drop_rq);
+ int mlx5e_create_indirect_rqt(struct mlx5e_priv *priv);
+ 
+ int mlx5e_create_indirect_tirs(struct mlx5e_priv *priv, bool inner_ttc);
+-void mlx5e_destroy_indirect_tirs(struct mlx5e_priv *priv, bool inner_ttc);
++void mlx5e_destroy_indirect_tirs(struct mlx5e_priv *priv);
+ 
+ int mlx5e_create_direct_rqts(struct mlx5e_priv *priv, struct mlx5e_tir *tirs);
+ void mlx5e_destroy_direct_rqts(struct mlx5e_priv *priv, struct mlx5e_tir *tirs);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 15102b5b8d4a..5c347f179c01 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2718,7 +2718,8 @@ void mlx5e_modify_tirs_hash(struct mlx5e_priv *priv, void *in, int inlen)
+ 		mlx5_core_modify_tir(mdev, priv->indir_tir[tt].tirn, in, inlen);
+ 	}
+ 
+-	if (!mlx5e_tunnel_inner_ft_supported(priv->mdev))
++	/* Verify inner tirs resources allocated */
++	if (!priv->inner_indir_tir[0].tirn)
+ 		return;
+ 
+ 	for (tt = 0; tt < MLX5E_NUM_INDIR_TIRS; tt++) {
+@@ -3410,14 +3411,15 @@ int mlx5e_create_direct_tirs(struct mlx5e_priv *priv, struct mlx5e_tir *tirs)
+ 	return err;
+ }
+ 
+-void mlx5e_destroy_indirect_tirs(struct mlx5e_priv *priv, bool inner_ttc)
++void mlx5e_destroy_indirect_tirs(struct mlx5e_priv *priv)
+ {
+ 	int i;
+ 
+ 	for (i = 0; i < MLX5E_NUM_INDIR_TIRS; i++)
+ 		mlx5e_destroy_tir(priv->mdev, &priv->indir_tir[i]);
+ 
+-	if (!inner_ttc || !mlx5e_tunnel_inner_ft_supported(priv->mdev))
++	/* Verify inner tirs resources allocated */
++	if (!priv->inner_indir_tir[0].tirn)
+ 		return;
+ 
+ 	for (i = 0; i < MLX5E_NUM_INDIR_TIRS; i++)
+@@ -5130,7 +5132,7 @@ static int mlx5e_init_nic_rx(struct mlx5e_priv *priv)
+ err_destroy_direct_tirs:
+ 	mlx5e_destroy_direct_tirs(priv, priv->direct_tir);
+ err_destroy_indirect_tirs:
+-	mlx5e_destroy_indirect_tirs(priv, true);
++	mlx5e_destroy_indirect_tirs(priv);
+ err_destroy_direct_rqts:
+ 	mlx5e_destroy_direct_rqts(priv, priv->direct_tir);
+ err_destroy_indirect_rqts:
+@@ -5149,7 +5151,7 @@ static void mlx5e_cleanup_nic_rx(struct mlx5e_priv *priv)
+ 	mlx5e_destroy_direct_tirs(priv, priv->xsk_tir);
+ 	mlx5e_destroy_direct_rqts(priv, priv->xsk_tir);
+ 	mlx5e_destroy_direct_tirs(priv, priv->direct_tir);
+-	mlx5e_destroy_indirect_tirs(priv, true);
++	mlx5e_destroy_indirect_tirs(priv);
+ 	mlx5e_destroy_direct_rqts(priv, priv->direct_tir);
+ 	mlx5e_destroy_rqt(priv, &priv->indir_rqt);
+ 	mlx5e_close_drop_rq(&priv->drop_rq);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index 681003317271..b228762357ee 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -1688,7 +1688,7 @@ static int mlx5e_init_rep_rx(struct mlx5e_priv *priv)
+ err_destroy_direct_tirs:
+ 	mlx5e_destroy_direct_tirs(priv, priv->direct_tir);
+ err_destroy_indirect_tirs:
+-	mlx5e_destroy_indirect_tirs(priv, false);
++	mlx5e_destroy_indirect_tirs(priv);
+ err_destroy_direct_rqts:
+ 	mlx5e_destroy_direct_rqts(priv, priv->direct_tir);
+ err_destroy_indirect_rqts:
+@@ -1706,7 +1706,7 @@ static void mlx5e_cleanup_rep_rx(struct mlx5e_priv *priv)
+ 	mlx5e_destroy_rep_root_ft(priv);
+ 	mlx5e_destroy_ttc_table(priv, &priv->fs.ttc);
+ 	mlx5e_destroy_direct_tirs(priv, priv->direct_tir);
+-	mlx5e_destroy_indirect_tirs(priv, false);
++	mlx5e_destroy_indirect_tirs(priv);
+ 	mlx5e_destroy_direct_rqts(priv, priv->direct_tir);
+ 	mlx5e_destroy_rqt(priv, &priv->indir_rqt);
+ 	mlx5e_close_drop_rq(&priv->drop_rq);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
+index 673aaa815f57..505cf6eeae25 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
+@@ -396,7 +396,7 @@ static int mlx5i_init_rx(struct mlx5e_priv *priv)
+ err_destroy_direct_tirs:
+ 	mlx5e_destroy_direct_tirs(priv, priv->direct_tir);
+ err_destroy_indirect_tirs:
+-	mlx5e_destroy_indirect_tirs(priv, true);
++	mlx5e_destroy_indirect_tirs(priv);
+ err_destroy_direct_rqts:
+ 	mlx5e_destroy_direct_rqts(priv, priv->direct_tir);
+ err_destroy_indirect_rqts:
+@@ -412,7 +412,7 @@ static void mlx5i_cleanup_rx(struct mlx5e_priv *priv)
+ {
+ 	mlx5i_destroy_flow_steering(priv);
+ 	mlx5e_destroy_direct_tirs(priv, priv->direct_tir);
+-	mlx5e_destroy_indirect_tirs(priv, true);
++	mlx5e_destroy_indirect_tirs(priv);
+ 	mlx5e_destroy_direct_rqts(priv, priv->direct_tir);
+ 	mlx5e_destroy_rqt(priv, &priv->indir_rqt);
+ 	mlx5e_close_drop_rq(&priv->drop_rq);
+-- 
+2.13.6
+

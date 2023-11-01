@@ -1,0 +1,198 @@
+From 31d317151ad03b5040aa5ee117208ff4b688095b Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:04:00 -0400
+Subject: [PATCH 083/312] [netdrv] net/mlx5: E-switch, Offloads shift ACL
+ programming during enable/disable vport
+
+Message-id: <20200510150452.10307-36-ahleihel@redhat.com>
+Patchwork-id: 306659
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 35/87] net/mlx5: E-switch, Offloads shift ACL programming during enable/disable vport
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5-rc1
+Conflicts:
+ - drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+   Context diff due to already backported commit
+   1e62e222db2e ("net/mlx5: E-Switch, Use vport metadata matching only when mandatory")
+   ---> In function esw_create_uplink_offloads_acl_tables, we now call esw_use_vport_metadata
+        instead of esw_check_vport_match_metadata_supported.
+
+commit 748da30b376e034ae54b53e7e38e15cfa2bf4dda
+Author: Vu Pham <vuhuong@mellanox.com>
+Date:   Mon Oct 28 23:35:22 2019 +0000
+
+    net/mlx5: E-switch, Offloads shift ACL programming during enable/disable vport
+
+    Currently legacy mode enables ACL while enabling vport, while offloads
+    mode enable ACL when moving to offloads mode.
+
+    Bring consistency to both modes by enabling/disabling ACL when
+    enabling/disabling a vport.
+
+    It also eliminates creating ingress ACL table on unused ECPF vport in
+    offloads mode.
+
+    Signed-off-by: Vu Pham <vuhuong@mellanox.com>
+    Signed-off-by: Parav Pandit <parav@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |  6 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  7 ++++
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 42 +++++++---------------
+ 3 files changed, 24 insertions(+), 31 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 2d094bb7b8a1..91b5ec6c3e13 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -1717,8 +1717,8 @@ static int esw_vport_setup_acl(struct mlx5_eswitch *esw,
+ {
+ 	if (esw->mode == MLX5_ESWITCH_LEGACY)
+ 		return esw_vport_create_legacy_acl_tables(esw, vport);
+-
+-	return 0;
++	else
++		return esw_vport_create_offloads_acl_tables(esw, vport);
+ }
+ 
+ static void esw_vport_destroy_legacy_acl_tables(struct mlx5_eswitch *esw,
+@@ -1742,6 +1742,8 @@ static void esw_vport_cleanup_acl(struct mlx5_eswitch *esw,
+ {
+ 	if (esw->mode == MLX5_ESWITCH_LEGACY)
+ 		esw_vport_destroy_legacy_acl_tables(esw, vport);
++	else
++		esw_vport_destroy_offloads_acl_tables(esw, vport);
+ }
+ 
+ static int esw_enable_vport(struct mlx5_eswitch *esw, struct mlx5_vport *vport,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index d29df0c302f2..0927019062d2 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -631,6 +631,13 @@ mlx5_eswitch_enable_pf_vf_vports(struct mlx5_eswitch *esw,
+ 				 enum mlx5_eswitch_vport_event enabled_events);
+ void mlx5_eswitch_disable_pf_vf_vports(struct mlx5_eswitch *esw);
+ 
++int
++esw_vport_create_offloads_acl_tables(struct mlx5_eswitch *esw,
++				     struct mlx5_vport *vport);
++void
++esw_vport_destroy_offloads_acl_tables(struct mlx5_eswitch *esw,
++				      struct mlx5_vport *vport);
++
+ #else  /* CONFIG_MLX5_ESWITCH */
+ /* eswitch API stubs */
+ static inline int  mlx5_eswitch_init(struct mlx5_core_dev *dev) { return 0; }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 756031dcf056..2485c2a7ad9d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -1964,7 +1964,7 @@ static bool esw_use_vport_metadata(const struct mlx5_eswitch *esw)
+ 	       esw_check_vport_match_metadata_supported(esw);
+ }
+ 
+-static int
++int
+ esw_vport_create_offloads_acl_tables(struct mlx5_eswitch *esw,
+ 				     struct mlx5_vport *vport)
+ {
+@@ -1982,7 +1982,7 @@ esw_vport_create_offloads_acl_tables(struct mlx5_eswitch *esw,
+ 	return err;
+ }
+ 
+-static void
++void
+ esw_vport_destroy_offloads_acl_tables(struct mlx5_eswitch *esw,
+ 				      struct mlx5_vport *vport)
+ {
+@@ -1990,43 +1990,27 @@ esw_vport_destroy_offloads_acl_tables(struct mlx5_eswitch *esw,
+ 	esw_vport_disable_ingress_acl(esw, vport);
+ }
+ 
+-static int esw_create_offloads_acl_tables(struct mlx5_eswitch *esw)
++static int esw_create_uplink_offloads_acl_tables(struct mlx5_eswitch *esw)
+ {
+ 	struct mlx5_vport *vport;
+-	int i, j;
+ 	int err;
+ 
+ 	if (esw_use_vport_metadata(esw))
+ 		esw->flags |= MLX5_ESWITCH_VPORT_MATCH_METADATA;
+ 
+-	mlx5_esw_for_all_vports(esw, i, vport) {
+-		err = esw_vport_create_offloads_acl_tables(esw, vport);
+-		if (err)
+-			goto err_acl_table;
+-	}
+-
+-	if (mlx5_eswitch_vport_match_metadata_enabled(esw))
+-		esw_info(esw->dev, "Use metadata reg_c as source vport to match\n");
+-
+-	return 0;
+-
+-err_acl_table:
+-	for (j = MLX5_VPORT_PF; j < i; j++) {
+-		vport = &esw->vports[j];
+-		esw_vport_destroy_offloads_acl_tables(esw, vport);
+-	}
+-
++	vport = mlx5_eswitch_get_vport(esw, MLX5_VPORT_UPLINK);
++	err = esw_vport_create_offloads_acl_tables(esw, vport);
++	if (err)
++		esw->flags &= ~MLX5_ESWITCH_VPORT_MATCH_METADATA;
+ 	return err;
+ }
+ 
+-static void esw_destroy_offloads_acl_tables(struct mlx5_eswitch *esw)
++static void esw_destroy_uplink_offloads_acl_tables(struct mlx5_eswitch *esw)
+ {
+ 	struct mlx5_vport *vport;
+-	int i;
+-
+-	mlx5_esw_for_all_vports(esw, i, vport)
+-		esw_vport_destroy_offloads_acl_tables(esw, vport);
+ 
++	vport = mlx5_eswitch_get_vport(esw, MLX5_VPORT_UPLINK);
++	esw_vport_destroy_offloads_acl_tables(esw, vport);
+ 	esw->flags &= ~MLX5_ESWITCH_VPORT_MATCH_METADATA;
+ }
+ 
+@@ -2044,7 +2028,7 @@ static int esw_offloads_steering_init(struct mlx5_eswitch *esw)
+ 	memset(&esw->fdb_table.offloads, 0, sizeof(struct offloads_fdb));
+ 	mutex_init(&esw->fdb_table.offloads.fdb_prio_lock);
+ 
+-	err = esw_create_offloads_acl_tables(esw);
++	err = esw_create_uplink_offloads_acl_tables(esw);
+ 	if (err)
+ 		return err;
+ 
+@@ -2069,7 +2053,7 @@ static int esw_offloads_steering_init(struct mlx5_eswitch *esw)
+ 	esw_destroy_offloads_fdb_tables(esw);
+ 
+ create_fdb_err:
+-	esw_destroy_offloads_acl_tables(esw);
++	esw_destroy_uplink_offloads_acl_tables(esw);
+ 
+ 	return err;
+ }
+@@ -2079,7 +2063,7 @@ static void esw_offloads_steering_cleanup(struct mlx5_eswitch *esw)
+ 	esw_destroy_vport_rx_group(esw);
+ 	esw_destroy_offloads_table(esw);
+ 	esw_destroy_offloads_fdb_tables(esw);
+-	esw_destroy_offloads_acl_tables(esw);
++	esw_destroy_uplink_offloads_acl_tables(esw);
+ }
+ 
+ static void
+-- 
+2.13.6
+

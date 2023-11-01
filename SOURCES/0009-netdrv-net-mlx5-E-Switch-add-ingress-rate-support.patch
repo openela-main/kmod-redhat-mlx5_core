@@ -1,0 +1,276 @@
+From ef56ac3b60e0e366983a421b51afc0e980c7cb1d Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:51:29 -0400
+Subject: [PATCH 009/312] [netdrv] net/mlx5: E-Switch, add ingress rate support
+
+Message-id: <20200510145245.10054-7-ahleihel@redhat.com>
+Patchwork-id: 306545
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 06/82] net/mlx5: E-Switch, add ingress rate support
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc1
+
+commit fcb64c0f5640e629bd77c2cb088f9fd70ff5bde7
+Author: Eli Cohen <eli@mellanox.com>
+Date:   Wed May 8 11:44:56 2019 +0300
+
+    net/mlx5: E-Switch, add ingress rate support
+
+    Use the scheduling elements to implement ingress rate limiter on an
+    eswitch ports ingress traffic. Since the ingress of eswitch port is the
+    egress of VF port, we control eswitch ingress by controlling VF egress.
+
+    Configuration is done using the ports' representor net devices.
+
+    Please note that burst size configuration is not supported by devices
+    ConnectX-5 and earlier generations.
+
+    Configuration examples:
+    tc:
+    tc filter add dev enp59s0f0_0 root protocol ip matchall action police rate 1mbit burst 20k
+
+    ovs:
+    ovs-vsctl set interface eth0 ingress_policing_rate=1000
+
+    Signed-off-by: Eli Cohen <eli@mellanox.com>
+    Reviewed-by: Paul Blakey <paulb@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c  |  19 ++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.h  |   1 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c   | 100 ++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.h   |   7 ++
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c |  16 ++++
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h |   2 +
+ 6 files changed, 145 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index c8ebd93ad5ac..66c8c2ace4b9 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -1179,6 +1179,23 @@ mlx5e_rep_setup_tc_cls_flower(struct mlx5e_priv *priv,
+ 	}
+ }
+ 
++static
++int mlx5e_rep_setup_tc_cls_matchall(struct mlx5e_priv *priv,
++				    struct tc_cls_matchall_offload *ma)
++{
++	switch (ma->command) {
++	case TC_CLSMATCHALL_REPLACE:
++		return mlx5e_tc_configure_matchall(priv, ma);
++	case TC_CLSMATCHALL_DESTROY:
++		return mlx5e_tc_delete_matchall(priv, ma);
++	case TC_CLSMATCHALL_STATS:
++		mlx5e_tc_stats_matchall(priv, ma);
++		return 0;
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
+ static int mlx5e_rep_setup_tc_cb(enum tc_setup_type type, void *type_data,
+ 				 void *cb_priv)
+ {
+@@ -1188,6 +1205,8 @@ static int mlx5e_rep_setup_tc_cb(enum tc_setup_type type, void *type_data,
+ 	switch (type) {
+ 	case TC_SETUP_CLSFLOWER:
+ 		return mlx5e_rep_setup_tc_cls_flower(priv, type_data, flags);
++	case TC_SETUP_CLSMATCHALL:
++		return mlx5e_rep_setup_tc_cls_matchall(priv, type_data);
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.h b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.h
+index fcc5e52023ef..c8f3bbdc1ffb 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.h
+@@ -90,6 +90,7 @@ struct mlx5e_rep_priv {
+ 	struct mlx5_flow_handle *vport_rx_rule;
+ 	struct list_head       vport_sqs_list;
+ 	struct mlx5_rep_uplink_priv uplink_priv; /* valid for uplink rep */
++	struct rtnl_link_stats64 prev_vf_vport_stats;
+ 	struct devlink_port dl_port;
+ };
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index f06e99eb06b9..1f76974dc946 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -3932,6 +3932,106 @@ int mlx5e_stats_flower(struct net_device *dev, struct mlx5e_priv *priv,
+ 	return err;
+ }
+ 
++static int apply_police_params(struct mlx5e_priv *priv, u32 rate,
++			       struct netlink_ext_ack *extack)
++{
++	struct mlx5e_rep_priv *rpriv = priv->ppriv;
++	struct mlx5_eswitch *esw;
++	u16 vport_num;
++	u32 rate_mbps;
++	int err;
++
++	esw = priv->mdev->priv.eswitch;
++	/* rate is given in bytes/sec.
++	 * First convert to bits/sec and then round to the nearest mbit/secs.
++	 * mbit means million bits.
++	 * Moreover, if rate is non zero we choose to configure to a minimum of
++	 * 1 mbit/sec.
++	 */
++	rate_mbps = rate ? max_t(u32, (rate * 8 + 500000) / 1000000, 1) : 0;
++	vport_num = rpriv->rep->vport;
++
++	err = mlx5_esw_modify_vport_rate(esw, vport_num, rate_mbps);
++	if (err)
++		NL_SET_ERR_MSG_MOD(extack, "failed applying action to hardware");
++
++	return err;
++}
++
++static int scan_tc_matchall_fdb_actions(struct mlx5e_priv *priv,
++					struct flow_action *flow_action,
++					struct netlink_ext_ack *extack)
++{
++	struct mlx5e_rep_priv *rpriv = priv->ppriv;
++	const struct flow_action_entry *act;
++	int err;
++	int i;
++
++	if (!flow_action_has_entries(flow_action)) {
++		NL_SET_ERR_MSG_MOD(extack, "matchall called with no action");
++		return -EINVAL;
++	}
++
++	if (!flow_offload_has_one_action(flow_action)) {
++		NL_SET_ERR_MSG_MOD(extack, "matchall policing support only a single action");
++		return -EOPNOTSUPP;
++	}
++
++	flow_action_for_each(i, act, flow_action) {
++		switch (act->id) {
++		case FLOW_ACTION_POLICE:
++			err = apply_police_params(priv, act->police.rate_bytes_ps, extack);
++			if (err)
++				return err;
++
++			rpriv->prev_vf_vport_stats = priv->stats.vf_vport;
++			break;
++		default:
++			NL_SET_ERR_MSG_MOD(extack, "mlx5 supports only police action for matchall");
++			return -EOPNOTSUPP;
++		}
++	}
++
++	return 0;
++}
++
++int mlx5e_tc_configure_matchall(struct mlx5e_priv *priv,
++				struct tc_cls_matchall_offload *ma)
++{
++	struct netlink_ext_ack *extack = ma->common.extack;
++	int prio = TC_H_MAJ(ma->common.prio) >> 16;
++
++	if (prio != 1) {
++		NL_SET_ERR_MSG_MOD(extack, "only priority 1 is supported");
++		return -EINVAL;
++	}
++
++	return scan_tc_matchall_fdb_actions(priv, &ma->rule->action, extack);
++}
++
++int mlx5e_tc_delete_matchall(struct mlx5e_priv *priv,
++			     struct tc_cls_matchall_offload *ma)
++{
++	struct netlink_ext_ack *extack = ma->common.extack;
++
++	return apply_police_params(priv, 0, extack);
++}
++
++void mlx5e_tc_stats_matchall(struct mlx5e_priv *priv,
++			     struct tc_cls_matchall_offload *ma)
++{
++	struct mlx5e_rep_priv *rpriv = priv->ppriv;
++	struct rtnl_link_stats64 cur_stats;
++	u64 dbytes;
++	u64 dpkts;
++
++	cur_stats = priv->stats.vf_vport;
++	dpkts = cur_stats.rx_packets - rpriv->prev_vf_vport_stats.rx_packets;
++	dbytes = cur_stats.rx_bytes - rpriv->prev_vf_vport_stats.rx_bytes;
++	rpriv->prev_vf_vport_stats = cur_stats;
++	flow_stats_update(&ma->stats, dpkts, dbytes, jiffies);
++}
++
+ static void mlx5e_tc_hairpin_update_dead_peer(struct mlx5e_priv *priv,
+ 					      struct mlx5e_priv *peer_priv)
+ {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
+index 876a78a09dd6..924c6ef86a14 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
+@@ -63,6 +63,13 @@ int mlx5e_delete_flower(struct net_device *dev, struct mlx5e_priv *priv,
+ int mlx5e_stats_flower(struct net_device *dev, struct mlx5e_priv *priv,
+ 		       struct flow_cls_offload *f, unsigned long flags);
+ 
++int mlx5e_tc_configure_matchall(struct mlx5e_priv *priv,
++				struct tc_cls_matchall_offload *f);
++int mlx5e_tc_delete_matchall(struct mlx5e_priv *priv,
++			     struct tc_cls_matchall_offload *f);
++void mlx5e_tc_stats_matchall(struct mlx5e_priv *priv,
++			     struct tc_cls_matchall_offload *ma);
++
+ struct mlx5e_encap_entry;
+ void mlx5e_tc_encap_flows_add(struct mlx5e_priv *priv,
+ 			      struct mlx5e_encap_entry *e,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 691f5e27e389..386e82850ed5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -1580,6 +1580,22 @@ static int esw_vport_qos_config(struct mlx5_eswitch *esw,
+ 	return 0;
+ }
+ 
++int mlx5_esw_modify_vport_rate(struct mlx5_eswitch *esw, u16 vport_num,
++			       u32 rate_mbps)
++{
++	u32 ctx[MLX5_ST_SZ_DW(scheduling_context)] = {};
++	struct mlx5_vport *vport;
++
++	vport = mlx5_eswitch_get_vport(esw, vport_num);
++	MLX5_SET(scheduling_context, ctx, max_average_bw, rate_mbps);
++
++	return mlx5_modify_scheduling_element_cmd(esw->dev,
++						  SCHEDULING_HIERARCHY_E_SWITCH,
++						  ctx,
++						  vport->qos.esw_tsar_ix,
++						  MODIFY_SCHEDULING_ELEMENT_IN_MODIFY_BITMASK_MAX_AVERAGE_BW);
++}
++
+ static void node_guid_gen_from_mac(u64 *node_guid, u8 mac[ETH_ALEN])
+ {
+ 	((u8 *)node_guid)[7] = mac[0];
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index 1747b6616e66..436c633407d6 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -263,6 +263,8 @@ void esw_vport_disable_ingress_acl(struct mlx5_eswitch *esw,
+ 				   struct mlx5_vport *vport);
+ void esw_vport_del_ingress_acl_modify_metadata(struct mlx5_eswitch *esw,
+ 					       struct mlx5_vport *vport);
++int mlx5_esw_modify_vport_rate(struct mlx5_eswitch *esw, u16 vport_num,
++			       u32 rate_mbps);
+ 
+ /* E-Switch API */
+ int mlx5_eswitch_init(struct mlx5_core_dev *dev);
+-- 
+2.13.6
+

@@ -1,0 +1,58 @@
+From 6e13ba7f4e12b25459c2d9e792ca56d84f9c8b52 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Mon, 1 Jun 2020 15:40:51 -0400
+Subject: [PATCH 310/312] [include] net/mlx5: IPSec: Fix incorrect type for spi
+
+Message-id: <20200601154102.25980-29-ahleihel@redhat.com>
+Patchwork-id: 315733
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1842258 28/39] net/mlx5: IPSec: Fix incorrect type for spi
+Bugzilla: 1842258
+RH-Acked-by: Honggang Li <honli@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1842258
+Upstream: git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git , branch: master
+
+commit 44345c4c130ee3df9b9fbc366d59ab3ac707d7f8
+Author: Saeed Mahameed <saeedm@mellanox.com>
+Date:   Fri May 29 00:47:12 2020 -0700
+
+    net/mlx5: IPSec: Fix incorrect type for spi
+
+    spi is __be32, fix that.
+
+    Fixes sparse warning:
+    drivers/net/ethernet/mellanox/mlx5/core/accel/ipsec.c:74:64
+    warning: incorrect type
+
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ include/linux/mlx5/accel.h | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/mlx5/accel.h b/include/linux/mlx5/accel.h
+index 5613e677a5f9..146d7dfe730b 100644
+--- a/include/linux/mlx5/accel.h
++++ b/include/linux/mlx5/accel.h
+@@ -76,7 +76,11 @@ struct aes_gcm_keymat {
+ struct mlx5_accel_esp_xfrm_attrs {
+ 	enum mlx5_accel_esp_action action;
+ 	u32   esn;
+-	u32   spi;
++#ifndef __GENKSYMS__
++	__be32 spi;
++#else
++	u32 spi;
++#endif
+ 	u32   seq;
+ 	u32   tfc_pad;
+ 	u32   flags;
+-- 
+2.13.6
+

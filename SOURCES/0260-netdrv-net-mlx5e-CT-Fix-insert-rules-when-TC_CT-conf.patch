@@ -1,0 +1,80 @@
+From bd80e8b7fb07dfac14cb968f5938dfb066de355d Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:49:22 -0400
+Subject: [PATCH 260/312] [netdrv] net/mlx5e: CT: Fix insert rules when TC_CT
+ config isn't enabled
+
+Message-id: <20200519074934.6303-52-ahleihel@redhat.com>
+Patchwork-id: 310552
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 51/63] net/mlx5e: CT: Fix insert rules when TC_CT config isn't enabled
+Bugzilla: 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Upstream: v5.7-rc1
+
+commit 3cfc4332edbc0e96af99be9c1cadf10c8b7113fb
+Author: Paul Blakey <paulb@mellanox.com>
+Date:   Sun Mar 15 15:18:47 2020 +0200
+
+    net/mlx5e: CT: Fix insert rules when TC_CT config isn't enabled
+
+    If CONFIG_MLX5_TC_CT isn't enabled, all offloading of eswitch tc rules
+    fails on parsing ct match, even if there is no ct match.
+
+    Return success if there is no ct match, regardless of config.
+
+    Fixes: 4c3844d9e97e ("net/mlx5e: CT: Introduce connection tracking")
+    Signed-off-by: Paul Blakey <paulb@mellanox.com>
+    Reviewed-by: Oz Shlomo <ozsh@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.h | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.h b/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.h
+index 6b2c893372da..091d305b633e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.h
+@@ -8,6 +8,8 @@
+ #include <linux/mlx5/fs.h>
+ #include <net/tc_act/tc_ct.h>
+ 
++#include "en.h"
++
+ struct mlx5_esw_flow_attr;
+ struct mlx5e_tc_mod_hdr_acts;
+ struct mlx5_rep_uplink_priv;
+@@ -128,6 +130,11 @@ mlx5_tc_ct_parse_match(struct mlx5e_priv *priv,
+ 		       struct flow_cls_offload *f,
+ 		       struct netlink_ext_ack *extack)
+ {
++	if (!flow_rule_match_key(f->rule, FLOW_DISSECTOR_KEY_CT))
++		return 0;
++
++	NL_SET_ERR_MSG_MOD(extack, "mlx5 tc ct offload isn't enabled.");
++	netdev_warn(priv->netdev, "mlx5 tc ct offload isn't enabled.\n");
+ 	return -EOPNOTSUPP;
+ }
+ 
+@@ -137,6 +144,8 @@ mlx5_tc_ct_parse_action(struct mlx5e_priv *priv,
+ 			const struct flow_action_entry *act,
+ 			struct netlink_ext_ack *extack)
+ {
++	NL_SET_ERR_MSG_MOD(extack, "mlx5 tc ct offload isn't enabled.");
++	netdev_warn(priv->netdev, "mlx5 tc ct offload isn't enabled.\n");
+ 	return -EOPNOTSUPP;
+ }
+ 
+-- 
+2.13.6
+

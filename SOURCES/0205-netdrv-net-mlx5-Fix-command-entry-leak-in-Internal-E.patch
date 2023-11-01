@@ -1,0 +1,58 @@
+From 1d288fe788bd17f3e56e4bccc7f0ef448284a5e8 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:55:22 -0400
+Subject: [PATCH 205/312] [netdrv] net/mlx5: Fix command entry leak in Internal
+ Error State
+
+Message-id: <20200512105530.4207-117-ahleihel@redhat.com>
+Patchwork-id: 306989
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 116/124] net/mlx5: Fix command entry leak in Internal Error State
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.7-rc5
+
+commit cece6f432cca9f18900463ed01b97a152a03600a
+Author: Moshe Shemesh <moshe@mellanox.com>
+Date:   Sun Feb 23 03:27:41 2020 +0200
+
+    net/mlx5: Fix command entry leak in Internal Error State
+
+    Processing commands by cmd_work_handler() while already in Internal
+    Error State will result in entry leak, since the handler process force
+    completion without doorbell. Forced completion doesn't release the entry
+    and event completion will never arrive, so entry should be released.
+
+    Fixes: 73dd3a4839c1 ("net/mlx5: Avoid using pending command interface slots")
+    Signed-off-by: Moshe Shemesh <moshe@mellanox.com>
+    Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index 59e38a6c4f52..23acec5a31d4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -922,6 +922,10 @@ static void cmd_work_handler(struct work_struct *work)
+ 		MLX5_SET(mbox_out, ent->out, syndrome, drv_synd);
+ 
+ 		mlx5_cmd_comp_handler(dev, 1UL << ent->idx, true);
++		/* no doorbell, no need to keep the entry */
++		free_ent(cmd, ent->idx);
++		if (ent->callback)
++			free_cmd(ent);
+ 		return;
+ 	}
+ 
+-- 
+2.13.6
+

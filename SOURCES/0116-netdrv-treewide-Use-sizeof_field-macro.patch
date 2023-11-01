@@ -1,0 +1,99 @@
+From 2b192742217de481dce69444e94fe1ec27ea8c4e Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:04:40 -0400
+Subject: [PATCH 116/312] [netdrv] treewide: Use sizeof_field() macro
+
+Message-id: <20200510150452.10307-76-ahleihel@redhat.com>
+Patchwork-id: 306699
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 75/87] treewide: Use sizeof_field() macro
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5-rc2
+Conflicts:
+ - Take mlx5 changes only.
+
+commit c593642c8be046915ca3a4a300243a68077cd207
+Author: Pankaj Bharadiya <pankaj.laxminarayan.bharadiya@intel.com>
+Date:   Mon Dec 9 10:31:43 2019 -0800
+
+    treewide: Use sizeof_field() macro
+
+    Replace all the occurrences of FIELD_SIZEOF() with sizeof_field() except
+    at places where these are defined. Later patches will remove the unused
+    definition of FIELD_SIZEOF().
+
+    This patch is generated using following script:
+
+    EXCLUDE_FILES="include/linux/stddef.h|include/linux/kernel.h"
+
+    git grep -l -e "\bFIELD_SIZEOF\b" | while read file;
+    do
+
+            if [[ "$file" =~ $EXCLUDE_FILES ]]; then
+                    continue
+            fi
+            sed -i  -e 's/\bFIELD_SIZEOF\b/sizeof_field/g' $file;
+    done
+
+    Signed-off-by: Pankaj Bharadiya <pankaj.laxminarayan.bharadiya@intel.com>
+    Link: https://lore.kernel.org/r/20190924105839.110713-3-pankaj.laxminarayan.bharadiya@intel.com
+    Co-developed-by: Kees Cook <keescook@chromium.org>
+    Signed-off-by: Kees Cook <keescook@chromium.org>
+    Acked-by: David Miller <davem@davemloft.net> # for net
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/fpga/ipsec.c | 6 +++---
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c    | 4 ++--
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/ipsec.c b/drivers/net/ethernet/mellanox/mlx5/core/fpga/ipsec.c
+index c76da309506b..e4ec0e03c289 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/ipsec.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/ipsec.c
+@@ -87,10 +87,10 @@ static const struct rhashtable_params rhash_sa = {
+ 	 * value is not constant during the lifetime
+ 	 * of the key object.
+ 	 */
+-	.key_len = FIELD_SIZEOF(struct mlx5_fpga_ipsec_sa_ctx, hw_sa) -
+-		   FIELD_SIZEOF(struct mlx5_ifc_fpga_ipsec_sa_v1, cmd),
++	.key_len = sizeof_field(struct mlx5_fpga_ipsec_sa_ctx, hw_sa) -
++		   sizeof_field(struct mlx5_ifc_fpga_ipsec_sa_v1, cmd),
+ 	.key_offset = offsetof(struct mlx5_fpga_ipsec_sa_ctx, hw_sa) +
+-		      FIELD_SIZEOF(struct mlx5_ifc_fpga_ipsec_sa_v1, cmd),
++		      sizeof_field(struct mlx5_ifc_fpga_ipsec_sa_v1, cmd),
+ 	.head_offset = offsetof(struct mlx5_fpga_ipsec_sa_ctx, hash),
+ 	.automatic_shrinking = true,
+ 	.min_size = 1,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index bf0cea1e294b..7138dcf2e538 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -209,7 +209,7 @@ enum fs_i_lock_class {
+ };
+ 
+ static const struct rhashtable_params rhash_fte = {
+-	.key_len = FIELD_SIZEOF(struct fs_fte, val),
++	.key_len = sizeof_field(struct fs_fte, val),
+ 	.key_offset = offsetof(struct fs_fte, val),
+ 	.head_offset = offsetof(struct fs_fte, hash),
+ 	.automatic_shrinking = true,
+@@ -217,7 +217,7 @@ static const struct rhashtable_params rhash_fte = {
+ };
+ 
+ static const struct rhashtable_params rhash_fg = {
+-	.key_len = FIELD_SIZEOF(struct mlx5_flow_group, mask),
++	.key_len = sizeof_field(struct mlx5_flow_group, mask),
+ 	.key_offset = offsetof(struct mlx5_flow_group, mask),
+ 	.head_offset = offsetof(struct mlx5_flow_group, hash),
+ 	.automatic_shrinking = true,
+-- 
+2.13.6
+

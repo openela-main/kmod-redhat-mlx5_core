@@ -1,0 +1,142 @@
+From 713b69f0ad280204ad68ebe2cd6e185e213182f0 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:51:51 -0400
+Subject: [PATCH 027/312] [netdrv] net/mlx5e: Add helper functions for
+ reporter's basics
+
+Message-id: <20200510145245.10054-29-ahleihel@redhat.com>
+Patchwork-id: 306569
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 28/82] net/mlx5e: Add helper functions for reporter's basics
+Bugzilla: 1790198 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Bugzilla: http://bugzilla.redhat.com/1790198
+Upstream: v5.4-rc1
+Conflicts:
+ - drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+   Context diff due to already backported commit
+   3c14562663c6 ("net/mlx5e: Expose new function for TIS destroy loop")
+   ---> In function mlx5e_cleanup_nic_tx, we now call mlx5e_destroy_tises
+        instead of the for loop.
+        Also, in function mlx5e_nic_init we no longer call mlx5e_build_tc2txq_maps.
+
+commit 11af6a6d09e9a90e05f4a21564232b30c6c25d69
+Author: Aya Levin <ayal@mellanox.com>
+Date:   Thu Jul 11 17:17:36 2019 +0300
+
+    net/mlx5e: Add helper functions for reporter's basics
+
+    Introduce helper functions for create and destroy reporters and update
+    channels. In the following patch, rx reporter is added and it will use
+    these helpers too.
+
+    Signed-off-by: Aya Levin <ayal@mellanox.com>
+    Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+    Acked-by: Jiri Pirko <jiri@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en/health.c | 17 +++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en/health.h |  4 ++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c   |  9 +++------
+ 3 files changed, 24 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/health.c b/drivers/net/ethernet/mellanox/mlx5/core/en/health.c
+index ffd9a7a165a2..c11d0162eaf8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/health.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/health.c
+@@ -96,6 +96,23 @@ int mlx5e_reporter_cq_common_diagnose(struct mlx5e_cq *cq, struct devlink_fmsg *
+ 	return 0;
+ }
+ 
++int mlx5e_health_create_reporters(struct mlx5e_priv *priv)
++{
++	return  mlx5e_reporter_tx_create(priv);
++}
++
++void mlx5e_health_destroy_reporters(struct mlx5e_priv *priv)
++{
++	mlx5e_reporter_tx_destroy(priv);
++}
++
++void mlx5e_health_channels_update(struct mlx5e_priv *priv)
++{
++	if (priv->tx_reporter)
++		devlink_health_reporter_state_update(priv->tx_reporter,
++						     DEVLINK_HEALTH_REPORTER_STATE_HEALTHY);
++}
++
+ int mlx5e_health_sq_to_ready(struct mlx5e_channel *channel, u32 sqn)
+ {
+ 	struct mlx5_core_dev *mdev = channel->mdev;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/health.h b/drivers/net/ethernet/mellanox/mlx5/core/en/health.h
+index 6725d417aaf5..b2c0ccc79b22 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/health.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/health.h
+@@ -29,5 +29,9 @@ int mlx5e_health_recover_channels(struct mlx5e_priv *priv);
+ int mlx5e_health_report(struct mlx5e_priv *priv,
+ 			struct devlink_health_reporter *reporter, char *err_str,
+ 			struct mlx5e_err_ctx *err_ctx);
++int mlx5e_health_create_reporters(struct mlx5e_priv *priv);
++void mlx5e_health_destroy_reporters(struct mlx5e_priv *priv);
++void mlx5e_health_channels_update(struct mlx5e_priv *priv);
++
+ 
+ #endif
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 49f5dbab2b8e..908b88891325 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2323,10 +2323,7 @@ int mlx5e_open_channels(struct mlx5e_priv *priv,
+ 			goto err_close_channels;
+ 	}
+ 
+-	if (priv->tx_reporter)
+-		devlink_health_reporter_state_update(priv->tx_reporter,
+-						     DEVLINK_HEALTH_REPORTER_STATE_HEALTHY);
+-
++	mlx5e_health_channels_update(priv);
+ 	kvfree(cparam);
+ 	return 0;
+ 
+@@ -3210,7 +3207,6 @@ int mlx5e_create_tises(struct mlx5e_priv *priv)
+ static void mlx5e_cleanup_nic_tx(struct mlx5e_priv *priv)
+ {
+ 
+-	mlx5e_reporter_tx_destroy(priv);
+ 	mlx5e_destroy_tises(priv);
+ }
+ 
+@@ -4972,12 +4968,14 @@ static int mlx5e_nic_init(struct mlx5_core_dev *mdev,
+ 	if (err)
+ 		mlx5_core_err(mdev, "TLS initialization failed, %d\n", err);
+ 	mlx5e_build_nic_netdev(netdev);
++	mlx5e_health_create_reporters(priv);
+ 
+ 	return 0;
+ }
+ 
+ static void mlx5e_nic_cleanup(struct mlx5e_priv *priv)
+ {
++	mlx5e_health_destroy_reporters(priv);
+ 	mlx5e_tls_cleanup(priv);
+ 	mlx5e_ipsec_cleanup(priv);
+ 	mlx5e_netdev_cleanup(priv->netdev, priv);
+@@ -5080,7 +5078,6 @@ static int mlx5e_init_nic_tx(struct mlx5e_priv *priv)
+ #ifdef CONFIG_MLX5_CORE_EN_DCB
+ 	mlx5e_dcbnl_initialize(priv);
+ #endif
+-	mlx5e_reporter_tx_create(priv);
+ 	return 0;
+ }
+ 
+-- 
+2.13.6
+

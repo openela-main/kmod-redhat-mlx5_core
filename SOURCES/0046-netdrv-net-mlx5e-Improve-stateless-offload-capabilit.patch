@@ -1,0 +1,100 @@
+From c83f03ec3f1e21f96aadd5a4a0eb912541c08bb5 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:52:18 -0400
+Subject: [PATCH 046/312] [netdrv] net/mlx5e: Improve stateless offload
+ capability check
+
+Message-id: <20200510145245.10054-56-ahleihel@redhat.com>
+Patchwork-id: 306596
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 55/82] net/mlx5e: Improve stateless offload capability check
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc1
+
+commit e3a53bc536fc279de2ace13b8d6d54b071afb722
+Author: Marina Varshaver <marinav@mellanox.com>
+Date:   Tue Aug 20 03:36:29 2019 +0300
+
+    net/mlx5e: Improve stateless offload capability check
+
+    Use generic function for checking tunnel stateless offload capability
+    instead of separate macros.
+
+    Signed-off-by: Marina Varshaver <marinav@mellanox.com>
+    Reviewed-by: Aya Levin <ayal@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en/fs.h   | 3 +++
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs.c   | 4 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 4 ++--
+ 3 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/fs.h b/drivers/net/ethernet/mellanox/mlx5/core/en/fs.h
+index 5aae3a7a5497..68d593074f6c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/fs.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/fs.h
+@@ -238,5 +238,8 @@ void mlx5e_disable_cvlan_filter(struct mlx5e_priv *priv);
+ int mlx5e_create_flow_steering(struct mlx5e_priv *priv);
+ void mlx5e_destroy_flow_steering(struct mlx5e_priv *priv);
+ 
++bool mlx5e_tunnel_proto_supported(struct mlx5_core_dev *mdev, u8 proto_type);
++bool mlx5e_any_tunnel_proto_supported(struct mlx5_core_dev *mdev);
++
+ #endif /* __MLX5E_FLOW_STEER_H__ */
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
+index b99b17957543..15b7f0f1427c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
+@@ -766,7 +766,7 @@ static struct mlx5e_etype_proto ttc_tunnel_rules[] = {
+ 
+ };
+ 
+-static bool mlx5e_tunnel_proto_supported(struct mlx5_core_dev *mdev, u8 proto_type)
++bool mlx5e_tunnel_proto_supported(struct mlx5_core_dev *mdev, u8 proto_type)
+ {
+ 	switch (proto_type) {
+ 	case IPPROTO_GRE:
+@@ -779,7 +779,7 @@ static bool mlx5e_tunnel_proto_supported(struct mlx5_core_dev *mdev, u8 proto_ty
+ 	}
+ }
+ 
+-static bool mlx5e_any_tunnel_proto_supported(struct mlx5_core_dev *mdev)
++bool mlx5e_any_tunnel_proto_supported(struct mlx5_core_dev *mdev)
+ {
+ 	int tt;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 13c1151bf60c..afe24002987d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -4851,7 +4851,7 @@ static void mlx5e_build_nic_netdev(struct net_device *netdev)
+ 	netdev->hw_features      |= NETIF_F_HW_VLAN_STAG_TX;
+ 
+ 	if (mlx5_vxlan_allowed(mdev->vxlan) || mlx5_geneve_tx_allowed(mdev) ||
+-	    MLX5_CAP_ETH(mdev, tunnel_stateless_gre)) {
++	    mlx5e_any_tunnel_proto_supported(mdev)) {
+ 		netdev->hw_enc_features |= NETIF_F_HW_CSUM;
+ 		netdev->hw_enc_features |= NETIF_F_TSO;
+ 		netdev->hw_enc_features |= NETIF_F_TSO6;
+@@ -4868,7 +4868,7 @@ static void mlx5e_build_nic_netdev(struct net_device *netdev)
+ 					 NETIF_F_GSO_UDP_TUNNEL_CSUM;
+ 	}
+ 
+-	if (MLX5_CAP_ETH(mdev, tunnel_stateless_gre)) {
++	if (mlx5e_tunnel_proto_supported(mdev, IPPROTO_GRE)) {
+ 		netdev->hw_features     |= NETIF_F_GSO_GRE |
+ 					   NETIF_F_GSO_GRE_CSUM;
+ 		netdev->hw_enc_features |= NETIF_F_GSO_GRE |
+-- 
+2.13.6
+

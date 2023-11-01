@@ -1,0 +1,125 @@
+From 38789d72ea1a8009cd52229695b56e6749a775db Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:49:10 -0400
+Subject: [PATCH 248/312] [netdrv] net/mlx5e: CT: Use rhashtable's ct entries
+ instead of a separate list
+
+Message-id: <20200519074934.6303-40-ahleihel@redhat.com>
+Patchwork-id: 310551
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 39/63] net/mlx5e: CT: Use rhashtable's ct entries instead of a separate list
+Bugzilla: 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Upstream: v5.7-rc2
+
+commit 9808dd0a2aeebcb72239a3b082159b0186d9ac3d
+Author: Paul Blakey <paulb@mellanox.com>
+Date:   Fri Mar 27 12:12:31 2020 +0300
+
+    net/mlx5e: CT: Use rhashtable's ct entries instead of a separate list
+
+    Fixes CT entries list corruption.
+
+    After allowing parallel insertion/removals in upper nf flow table
+    layer, unprotected ct entries list can be corrupted by parallel add/del
+    on the same flow table.
+
+    CT entries list is only used while freeing a ct zone flow table to
+    go over all the ct entries offloaded on that zone/table, and flush
+    the table.
+
+    As rhashtable already provides an api to go over all the inserted entries,
+    fix the race by using the rhashtable iteration instead, and remove the list.
+
+    Fixes: 7da182a998d6 ("netfilter: flowtable: Use work entry per offload command")
+    Reviewed-by: Oz Shlomo <ozsh@mellanox.com>
+    Signed-off-by: Paul Blakey <paulb@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.c | 19 +++++++------------
+ 1 file changed, 7 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.c b/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.c
+index cb43b53bc235..14b29d0d5092 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.c
+@@ -67,11 +67,9 @@ struct mlx5_ct_ft {
+ 	struct nf_flowtable *nf_ft;
+ 	struct mlx5_tc_ct_priv *ct_priv;
+ 	struct rhashtable ct_entries_ht;
+-	struct list_head ct_entries_list;
+ };
+ 
+ struct mlx5_ct_entry {
+-	struct list_head list;
+ 	u16 zone;
+ 	struct rhash_head node;
+ 	struct flow_rule *flow_rule;
+@@ -617,8 +615,6 @@ mlx5_tc_ct_block_flow_offload_add(struct mlx5_ct_ft *ft,
+ 	if (err)
+ 		goto err_insert;
+ 
+-	list_add(&entry->list, &ft->ct_entries_list);
+-
+ 	return 0;
+ 
+ err_insert:
+@@ -646,7 +642,6 @@ mlx5_tc_ct_block_flow_offload_del(struct mlx5_ct_ft *ft,
+ 	WARN_ON(rhashtable_remove_fast(&ft->ct_entries_ht,
+ 				       &entry->node,
+ 				       cts_ht_params));
+-	list_del(&entry->list);
+ 	kfree(entry);
+ 
+ 	return 0;
+@@ -818,7 +813,6 @@ mlx5_tc_ct_add_ft_cb(struct mlx5_tc_ct_priv *ct_priv, u16 zone,
+ 	ft->zone = zone;
+ 	ft->nf_ft = nf_ft;
+ 	ft->ct_priv = ct_priv;
+-	INIT_LIST_HEAD(&ft->ct_entries_list);
+ 	refcount_set(&ft->refcount, 1);
+ 
+ 	err = rhashtable_init(&ft->ct_entries_ht, &cts_ht_params);
+@@ -847,12 +841,12 @@ mlx5_tc_ct_add_ft_cb(struct mlx5_tc_ct_priv *ct_priv, u16 zone,
+ }
+ 
+ static void
+-mlx5_tc_ct_flush_ft(struct mlx5_tc_ct_priv *ct_priv, struct mlx5_ct_ft *ft)
++mlx5_tc_ct_flush_ft_entry(void *ptr, void *arg)
+ {
+-	struct mlx5_ct_entry *entry;
++	struct mlx5_tc_ct_priv *ct_priv = arg;
++	struct mlx5_ct_entry *entry = ptr;
+ 
+-	list_for_each_entry(entry, &ft->ct_entries_list, list)
+-		mlx5_tc_ct_entry_del_rules(ft->ct_priv, entry);
++	mlx5_tc_ct_entry_del_rules(ct_priv, entry);
+ }
+ 
+ static void
+@@ -863,9 +857,10 @@ mlx5_tc_ct_del_ft_cb(struct mlx5_tc_ct_priv *ct_priv, struct mlx5_ct_ft *ft)
+ 
+ 	nf_flow_table_offload_del_cb(ft->nf_ft,
+ 				     mlx5_tc_ct_block_flow_offload, ft);
+-	mlx5_tc_ct_flush_ft(ct_priv, ft);
+ 	rhashtable_remove_fast(&ct_priv->zone_ht, &ft->node, zone_params);
+-	rhashtable_destroy(&ft->ct_entries_ht);
++	rhashtable_free_and_destroy(&ft->ct_entries_ht,
++				    mlx5_tc_ct_flush_ft_entry,
++				    ct_priv);
+ 	kfree(ft);
+ }
+ 
+-- 
+2.13.6
+

@@ -1,0 +1,55 @@
+From 43b18ac8b9d4ab89a3e278f05f0a36a13f2582d8 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:40 -0400
+Subject: [PATCH 168/312] [netdrv] net/mlx5e: Add missing LRO cap check
+
+Message-id: <20200512105530.4207-75-ahleihel@redhat.com>
+Patchwork-id: 306945
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 074/124] net/mlx5e: Add missing LRO cap check
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.7-rc1
+
+commit 02377e6edf135289ebdf6ff4b40a422db4b780ff
+Author: Tariq Toukan <tariqt@mellanox.com>
+Date:   Thu Jan 2 16:17:41 2020 +0200
+
+    net/mlx5e: Add missing LRO cap check
+
+    The LRO boolean state in params->lro_en must not be set in case
+    the NIC is not capable.
+    Enforce this check and remove the TODO comment.
+
+    Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 2f87b0b4660f..be3b5f911358 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -4794,9 +4794,8 @@ void mlx5e_build_nic_params(struct mlx5e_priv *priv,
+ 	mlx5e_build_rq_params(mdev, params);
+ 
+ 	/* HW LRO */
+-
+-	/* TODO: && MLX5_CAP_ETH(mdev, lro_cap) */
+-	if (params->rq_wq_type == MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ) {
++	if (MLX5_CAP_ETH(mdev, lro_cap) &&
++	    params->rq_wq_type == MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ) {
+ 		/* No XSK params: checking the availability of striding RQ in general. */
+ 		if (!mlx5e_rx_mpwqe_is_linear_skb(mdev, params, NULL))
+ 			params->lro_en = !slow_pci_heuristic(mdev);
+-- 
+2.13.6
+

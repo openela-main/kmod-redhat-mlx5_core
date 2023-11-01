@@ -1,0 +1,56 @@
+From 923f2933d2da0e93d9a92633806fd953b19992d3 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:32 -0400
+Subject: [PATCH 162/312] [netdrv] net/mlx5_core: Set IB capability mask1 to
+ fix ib_srpt connection failure
+
+Message-id: <20200512105530.4207-67-ahleihel@redhat.com>
+Patchwork-id: 306938
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 066/124] net/mlx5_core: Set IB capability mask1 to fix ib_srpt connection failure
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.6
+
+commit 306f354c67397b3138300cde875c5cab45b857f7
+Author: Leon Romanovsky <leonro@mellanox.com>
+Date:   Mon Mar 16 09:31:03 2020 +0200
+
+    net/mlx5_core: Set IB capability mask1 to fix ib_srpt connection failure
+
+    The cap_mask1 isn't protected by field_select and not listed among RW
+    fields, but it is required to be written to properly initialize ports
+    in IB virtualization mode.
+
+    Link: https://lore.kernel.org/linux-rdma/88bab94d2fd72f3145835b4518bc63dda587add6.camel@redhat.com
+    Fixes: ab118da4c10a ("net/mlx5: Don't write read-only fields in MODIFY_HCA_VPORT_CONTEXT command")
+    Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/vport.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+index 1faac31f74d0..23f879da9104 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+@@ -1071,6 +1071,9 @@ int mlx5_core_modify_hca_vport_context(struct mlx5_core_dev *dev,
+ 		MLX5_SET64(hca_vport_context, ctx, port_guid, req->port_guid);
+ 	if (req->field_select & MLX5_HCA_VPORT_SEL_NODE_GUID)
+ 		MLX5_SET64(hca_vport_context, ctx, node_guid, req->node_guid);
++	MLX5_SET(hca_vport_context, ctx, cap_mask1, req->cap_mask1);
++	MLX5_SET(hca_vport_context, ctx, cap_mask1_field_select,
++		 req->cap_mask1_perm);
+ 	err = mlx5_cmd_exec(dev, in, in_sz, out, sizeof(out));
+ ex:
+ 	kfree(in);
+-- 
+2.13.6
+

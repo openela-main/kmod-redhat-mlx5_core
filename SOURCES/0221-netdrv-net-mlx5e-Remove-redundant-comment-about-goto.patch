@@ -1,0 +1,61 @@
+From c34e908bd20b47356100940fca3b4f76eb4156de Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:48:42 -0400
+Subject: [PATCH 221/312] [netdrv] net/mlx5e: Remove redundant comment about
+ goto slow path
+
+Message-id: <20200519074934.6303-12-ahleihel@redhat.com>
+Patchwork-id: 310514
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 11/63] net/mlx5e: Remove redundant comment about goto slow path
+Bugzilla: 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Upstream: v5.7-rc1
+
+commit bc1d75fa79860ec9d065cd3de041f86811d48563
+Author: Roi Dayan <roid@mellanox.com>
+Date:   Thu Feb 13 14:19:50 2020 +0200
+
+    net/mlx5e: Remove redundant comment about goto slow path
+
+    The code is self explanatory and makes the comment redundant.
+
+    Signed-off-by: Roi Dayan <roid@mellanox.com>
+    Reviewed-by: Eli Cohen <eli@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index c1619157e590..12773c35d261 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -1241,12 +1241,10 @@ mlx5e_tc_add_fdb_flow(struct mlx5e_priv *priv,
+ 	 * (1) there's no error
+ 	 * (2) there's an encap action and we don't have valid neigh
+ 	 */
+-	if (!encap_valid) {
+-		/* continue with goto slow path rule instead */
++	if (!encap_valid)
+ 		flow->rule[0] = mlx5e_tc_offload_to_slow_path(esw, flow, &parse_attr->spec);
+-	} else {
++	else
+ 		flow->rule[0] = mlx5e_tc_offload_fdb_rules(esw, flow, &parse_attr->spec, attr);
+-	}
+ 
+ 	if (IS_ERR(flow->rule[0]))
+ 		return PTR_ERR(flow->rule[0]);
+-- 
+2.13.6
+

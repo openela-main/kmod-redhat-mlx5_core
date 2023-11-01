@@ -1,0 +1,115 @@
+From 9d713f61edcf542b446566ad17b5dcce46044480 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:49:30 -0400
+Subject: [PATCH 267/312] [netdrv] net/mlx5: Simplify mlx5_register_device to
+ return void
+
+Message-id: <20200519074934.6303-60-ahleihel@redhat.com>
+Patchwork-id: 310560
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 59/63] net/mlx5: Simplify mlx5_register_device to return void
+Bugzilla: 1835595 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1835595
+Bugzilla: http://bugzilla.redhat.com/1663246
+Upstream: v5.7-rc1
+
+commit ecd01db8711d4c608ef6636275e26a8b2069b798
+Author: Parav Pandit <parav@mellanox.com>
+Date:   Sun Mar 8 22:19:51 2020 -0500
+
+    net/mlx5: Simplify mlx5_register_device to return void
+
+    mlx5_register_device() doesn't check for any error and always returns 0.
+    Simplify mlx5_register_device() to return void and its caller, remove
+    dead code related to it.
+
+    Reviewed-by: Moshe Shemesh <moshe@mellanox.com>
+    Signed-off-by: Parav Pandit <parav@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/dev.c       |  4 +---
+ drivers/net/ethernet/mellanox/mlx5/core/main.c      | 14 +++-----------
+ drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h |  2 +-
+ 3 files changed, 5 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/dev.c b/drivers/net/ethernet/mellanox/mlx5/core/dev.c
+index 50862275544e..1972ddd12704 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/dev.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/dev.c
+@@ -193,7 +193,7 @@ bool mlx5_device_registered(struct mlx5_core_dev *dev)
+ 	return found;
+ }
+ 
+-int mlx5_register_device(struct mlx5_core_dev *dev)
++void mlx5_register_device(struct mlx5_core_dev *dev)
+ {
+ 	struct mlx5_priv *priv = &dev->priv;
+ 	struct mlx5_interface *intf;
+@@ -203,8 +203,6 @@ int mlx5_register_device(struct mlx5_core_dev *dev)
+ 	list_for_each_entry(intf, &intf_list, list)
+ 		mlx5_add_device(intf, priv);
+ 	mutex_unlock(&mlx5_intf_mutex);
+-
+-	return 0;
+ }
+ 
+ void mlx5_unregister_device(struct mlx5_core_dev *dev)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index c835f029caf8..8df92ccf6393 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -1228,15 +1228,10 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, bool boot)
+ 			goto err_devlink_reg;
+ 	}
+ 
+-	if (mlx5_device_registered(dev)) {
++	if (mlx5_device_registered(dev))
+ 		mlx5_attach_device(dev);
+-	} else {
+-		err = mlx5_register_device(dev);
+-		if (err) {
+-			mlx5_core_err(dev, "register device failed %d\n", err);
+-			goto err_reg_dev;
+-		}
+-	}
++	else
++		mlx5_register_device(dev);
+ 
+ 	set_bit(MLX5_INTERFACE_STATE_UP, &dev->intf_state);
+ out:
+@@ -1244,9 +1239,6 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, bool boot)
+ 
+ 	return err;
+ 
+-err_reg_dev:
+-	if (boot)
+-		mlx5_devlink_unregister(priv_to_devlink(dev));
+ err_devlink_reg:
+ 	mlx5_unload(dev);
+ err_load:
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+index b100489dc85c..23dc7be90263 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+@@ -182,7 +182,7 @@ void mlx5_remove_device(struct mlx5_interface *intf, struct mlx5_priv *priv);
+ void mlx5_attach_device(struct mlx5_core_dev *dev);
+ void mlx5_detach_device(struct mlx5_core_dev *dev);
+ bool mlx5_device_registered(struct mlx5_core_dev *dev);
+-int mlx5_register_device(struct mlx5_core_dev *dev);
++void mlx5_register_device(struct mlx5_core_dev *dev);
+ void mlx5_unregister_device(struct mlx5_core_dev *dev);
+ void mlx5_add_dev_by_protocol(struct mlx5_core_dev *dev, int protocol);
+ void mlx5_remove_dev_by_protocol(struct mlx5_core_dev *dev, int protocol);
+-- 
+2.13.6
+

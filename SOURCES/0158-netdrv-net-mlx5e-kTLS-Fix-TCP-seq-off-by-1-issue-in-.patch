@@ -1,0 +1,59 @@
+From 0d3c68c01dee6407d29e6c93bf5ecefef6ba1922 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:27 -0400
+Subject: [PATCH 158/312] [netdrv] net/mlx5e: kTLS, Fix TCP seq off-by-1 issue
+ in TX resync flow
+
+Message-id: <20200512105530.4207-62-ahleihel@redhat.com>
+Patchwork-id: 306931
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 061/124] net/mlx5e: kTLS, Fix TCP seq off-by-1 issue in TX resync flow
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.6
+
+commit 56917766def72f5afdf4235adb91b6897ff26d9d
+Author: Tariq Toukan <tariqt@mellanox.com>
+Date:   Thu Feb 20 13:40:24 2020 +0200
+
+    net/mlx5e: kTLS, Fix TCP seq off-by-1 issue in TX resync flow
+
+    We have an off-by-1 issue in the TCP seq comparison.
+    The last sequence number that belongs to the TCP packet's payload
+    is not "start_seq + len", but one byte before it.
+    Fix it so the 'ends_before' is evaluated properly.
+
+    This fixes a bug that results in error completions in the
+    kTLS HW offload flows.
+
+    Fixes: ffbd9ca94e2e ("net/mlx5e: kTLS, Fix corner-case checks in TX resync flow")
+    Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+    Reviewed-by: Boris Pismenny <borisp@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c
+index f260dd96873b..52a56622034a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c
+@@ -218,7 +218,7 @@ tx_sync_info_get(struct mlx5e_ktls_offload_context_tx *priv_tx,
+ 	 *    this packet was already acknowledged and its record info
+ 	 *    was released.
+ 	 */
+-	ends_before = before(tcp_seq + datalen, tls_record_start_seq(record));
++	ends_before = before(tcp_seq + datalen - 1, tls_record_start_seq(record));
+ 
+ 	if (unlikely(tls_record_is_start_marker(record))) {
+ 		ret = ends_before ? MLX5E_KTLS_SYNC_SKIP_NO_DATA : MLX5E_KTLS_SYNC_FAIL;
+-- 
+2.13.6
+

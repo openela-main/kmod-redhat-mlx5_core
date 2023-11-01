@@ -1,0 +1,96 @@
+From 54d02b39369e78ccdc913277f36d16b337d08437 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:48:34 -0400
+Subject: [PATCH 213/312] [netdrv] net/mlx5: ft: Check prio and chain sanity
+ for ft offload
+
+Message-id: <20200519074934.6303-4-ahleihel@redhat.com>
+Patchwork-id: 310509
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 03/63] net/mlx5: ft: Check prio and chain sanity for ft offload
+Bugzilla: 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Upstream: v5.6-rc1
+
+commit 82270e12544ee76ea9a3117a769a6d466a2e646b
+Author: Paul Blakey <paulb@mellanox.com>
+Date:   Tue Nov 26 14:15:00 2019 +0200
+
+    net/mlx5: ft: Check prio and chain sanity for ft offload
+
+    Before changing the chain from original chain to ft offload chain,
+    make sure user doesn't actually use chains.
+
+    While here, normalize the prio range to that which we support.
+
+    Signed-off-by: Paul Blakey <paulb@mellanox.com>
+    Reviewed-by: Roi Dayan <roid@mellanox.com>
+    Reviewed-by: Mark Bloch <markb@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c | 27 ++++++++++++++++++------
+ 1 file changed, 20 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index 406fb642f2d4..bde634ca85d0 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -1223,8 +1223,7 @@ static int mlx5e_rep_setup_tc_cb(enum tc_setup_type type, void *type_data,
+ static int mlx5e_rep_setup_ft_cb(enum tc_setup_type type, void *type_data,
+ 				 void *cb_priv)
+ {
+-	struct flow_cls_offload *f = type_data;
+-	struct flow_cls_offload cls_flower;
++	struct flow_cls_offload tmp, *f = type_data;
+ 	struct mlx5e_priv *priv = cb_priv;
+ 	struct mlx5_eswitch *esw;
+ 	unsigned long flags;
+@@ -1237,16 +1236,30 @@ static int mlx5e_rep_setup_ft_cb(enum tc_setup_type type, void *type_data,
+ 
+ 	switch (type) {
+ 	case TC_SETUP_CLSFLOWER:
+-		if (!mlx5_eswitch_prios_supported(esw) || f->common.chain_index)
++		memcpy(&tmp, f, sizeof(*f));
++
++		if (!mlx5_eswitch_prios_supported(esw) ||
++		    tmp.common.chain_index)
+ 			return -EOPNOTSUPP;
+ 
+ 		/* Re-use tc offload path by moving the ft flow to the
+ 		 * reserved ft chain.
++		 *
++		 * FT offload can use prio range [0, INT_MAX], so we
++		 * normalize it to range [1, mlx5_eswitch_get_prio_range(esw)]
++		 * as with tc, where prio 0 isn't supported.
++		 *
++		 * We only support chain 0 of FT offload.
+ 		 */
+-		memcpy(&cls_flower, f, sizeof(*f));
+-		cls_flower.common.chain_index = mlx5_eswitch_get_ft_chain(esw);
+-		err = mlx5e_rep_setup_tc_cls_flower(priv, &cls_flower, flags);
+-		memcpy(&f->stats, &cls_flower.stats, sizeof(f->stats));
++		if (tmp.common.prio >= mlx5_eswitch_get_prio_range(esw))
++			return -EOPNOTSUPP;
++		if (tmp.common.chain_index != 0)
++			return -EOPNOTSUPP;
++
++		tmp.common.chain_index = mlx5_eswitch_get_ft_chain(esw);
++		tmp.common.prio++;
++		err = mlx5e_rep_setup_tc_cls_flower(priv, &tmp, flags);
++		memcpy(&f->stats, &tmp.stats, sizeof(f->stats));
+ 		return err;
+ 	default:
+ 		return -EOPNOTSUPP;
+-- 
+2.13.6
+

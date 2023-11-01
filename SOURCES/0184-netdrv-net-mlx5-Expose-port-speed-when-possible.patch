@@ -1,0 +1,89 @@
+From b5743d69b40d3913a3d825221929275be67c0110 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:56 -0400
+Subject: [PATCH 184/312] [netdrv] net/mlx5: Expose port speed when possible
+
+Message-id: <20200512105530.4207-91-ahleihel@redhat.com>
+Patchwork-id: 306962
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 090/124] net/mlx5: Expose port speed when possible
+Bugzilla: 1831133 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Bugzilla: http://bugzilla.redhat.com/1831133
+Upstream: v5.7-rc1
+
+commit c268ca6087f553bfc0e16ffec412b983ffe32fd4
+Author: Mark Bloch <markb@mellanox.com>
+Date:   Tue Feb 25 18:04:40 2020 +0000
+
+    net/mlx5: Expose port speed when possible
+
+    When port speed can't be reported based on ext_eth_proto_capability
+    or eth_proto_capability instead of reporting speed as unknown check
+    if the port's speed can be inferred based on the data_rate_oper field.
+
+    Signed-off-by: Mark Bloch <markb@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 915f1d74afad..3b5f4a2c9f4e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -768,6 +768,7 @@ static void ptys2ethtool_supported_advertised_port(struct ethtool_link_ksettings
+ 
+ static void get_speed_duplex(struct net_device *netdev,
+ 			     u32 eth_proto_oper, bool force_legacy,
++			     u16 data_rate_oper,
+ 			     struct ethtool_link_ksettings *link_ksettings)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(netdev);
+@@ -779,7 +780,10 @@ static void get_speed_duplex(struct net_device *netdev,
+ 
+ 	speed = mlx5e_port_ptys2speed(priv->mdev, eth_proto_oper, force_legacy);
+ 	if (!speed) {
+-		speed = SPEED_UNKNOWN;
++		if (data_rate_oper)
++			speed = 100 * data_rate_oper;
++		else
++			speed = SPEED_UNKNOWN;
+ 		goto out;
+ 	}
+ 
+@@ -869,6 +873,7 @@ int mlx5e_ethtool_get_link_ksettings(struct mlx5e_priv *priv,
+ {
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+ 	u32 out[MLX5_ST_SZ_DW(ptys_reg)] = {0};
++	u16 data_rate_oper;
+ 	u32 rx_pause = 0;
+ 	u32 tx_pause = 0;
+ 	u32 eth_proto_cap;
+@@ -912,6 +917,7 @@ int mlx5e_ethtool_get_link_ksettings(struct mlx5e_priv *priv,
+ 	an_disable_admin    = MLX5_GET(ptys_reg, out, an_disable_admin);
+ 	an_status	    = MLX5_GET(ptys_reg, out, an_status);
+ 	connector_type	    = MLX5_GET(ptys_reg, out, connector_type);
++	data_rate_oper	    = MLX5_GET(ptys_reg, out, data_rate_oper);
+ 
+ 	mlx5_query_port_pause(mdev, &rx_pause, &tx_pause);
+ 
+@@ -922,7 +928,7 @@ int mlx5e_ethtool_get_link_ksettings(struct mlx5e_priv *priv,
+ 	get_advertising(eth_proto_admin, tx_pause, rx_pause, link_ksettings,
+ 			admin_ext);
+ 	get_speed_duplex(priv->netdev, eth_proto_oper, !admin_ext,
+-			 link_ksettings);
++			 data_rate_oper, link_ksettings);
+ 
+ 	eth_proto_oper = eth_proto_oper ? eth_proto_oper : eth_proto_cap;
+ 
+-- 
+2.13.6
+

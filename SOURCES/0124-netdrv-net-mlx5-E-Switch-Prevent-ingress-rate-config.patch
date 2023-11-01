@@ -1,0 +1,71 @@
+From 089fd5fe79675e3a41d6bb6dfce19745fee0fe66 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:04:49 -0400
+Subject: [PATCH 124/312] [netdrv] net/mlx5: E-Switch, Prevent ingress rate
+ configuration of uplink rep
+
+Message-id: <20200510150452.10307-85-ahleihel@redhat.com>
+Patchwork-id: 306707
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 84/87] net/mlx5: E-Switch, Prevent ingress rate configuration of uplink rep
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5
+
+commit e401a1848be87123a2b2049addbf21138cb47081
+Author: Eli Cohen <eli@mellanox.com>
+Date:   Sun Jan 12 13:43:37 2020 +0200
+
+    net/mlx5: E-Switch, Prevent ingress rate configuration of uplink rep
+
+    Since the implementation relies on limiting the VF transmit rate to
+    simulate ingress rate limiting, and since either uplink representor or
+    ecpf are not associated with a VF, we limit the rate limit configuration
+    for those ports.
+
+    Fixes: fcb64c0f5640 ("net/mlx5: E-Switch, add ingress rate support")
+    Signed-off-by: Eli Cohen <eli@mellanox.com>
+    Reviewed-by: Roi Dayan <roid@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index daef493b8e50..f701d62a86b1 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -4010,6 +4010,13 @@ static int apply_police_params(struct mlx5e_priv *priv, u32 rate,
+ 	u32 rate_mbps;
+ 	int err;
+ 
++	vport_num = rpriv->rep->vport;
++	if (vport_num >= MLX5_VPORT_ECPF) {
++		NL_SET_ERR_MSG_MOD(extack,
++				   "Ingress rate limit is supported only for Eswitch ports connected to VFs");
++		return -EOPNOTSUPP;
++	}
++
+ 	esw = priv->mdev->priv.eswitch;
+ 	/* rate is given in bytes/sec.
+ 	 * First convert to bits/sec and then round to the nearest mbit/secs.
+@@ -4018,8 +4025,6 @@ static int apply_police_params(struct mlx5e_priv *priv, u32 rate,
+ 	 * 1 mbit/sec.
+ 	 */
+ 	rate_mbps = rate ? max_t(u32, (rate * 8 + 500000) / 1000000, 1) : 0;
+-	vport_num = rpriv->rep->vport;
+-
+ 	err = mlx5_esw_modify_vport_rate(esw, vport_num, rate_mbps);
+ 	if (err)
+ 		NL_SET_ERR_MSG_MOD(extack, "failed applying action to hardware");
+-- 
+2.13.6
+

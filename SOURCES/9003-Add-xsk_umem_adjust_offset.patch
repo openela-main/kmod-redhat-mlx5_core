@@ -1,0 +1,46 @@
+Index: src/drivers/net/ethernet/mellanox/mlx5/core/backport_compat.h
+===================================================================
+--- src.orig/drivers/net/ethernet/mellanox/mlx5/core/backport_compat.h	2020-07-14 20:07:10.942801484 +0200
++++ src/drivers/net/ethernet/mellanox/mlx5/core/backport_compat.h	2020-07-14 20:07:49.481861209 +0200
+@@ -1,4 +1,17 @@
+ #ifndef MLX5_BACKPORT_COMPAT_H
+ #define MLX5_BACKPORT_COMPAT_H
+ 
++#include <net/xdp_sock.h>
++
++
++/*
++ * A stub for xsk_umem_adjust_offset; since only unaligned mode is supported
++ * in RHEL 8.2; the code is somewhat simplified.
++ */
++static inline u64 xsk_umem_adjust_offset(struct xdp_umem *umem, u64 address,
++                                         u64 offset)
++{
++        return address + offset;
++}
++
+ #endif
+Index: src/drivers/net/ethernet/mellanox/mlx5/core/en/xdp.c
+===================================================================
+--- src.orig/drivers/net/ethernet/mellanox/mlx5/core/en/xdp.c	2020-07-14 20:07:07.866796717 +0200
++++ src/drivers/net/ethernet/mellanox/mlx5/core/en/xdp.c	2020-07-14 20:07:10.954801503 +0200
+@@ -34,6 +34,7 @@
+ #include <net/xdp_sock.h>
+ #include "en/xdp.h"
+ #include "en/params.h"
++#include "backport_compat.h"
+ 
+ int mlx5e_xdp_max_mtu(struct mlx5e_params *params, struct mlx5e_xsk_param *xsk)
+ {
+Index: src/drivers/net/ethernet/mellanox/mlx5/core/en/xsk/rx.c
+===================================================================
+--- src.orig/drivers/net/ethernet/mellanox/mlx5/core/en/xsk/rx.c	2020-07-14 20:07:07.809796629 +0200
++++ src/drivers/net/ethernet/mellanox/mlx5/core/en/xsk/rx.c	2020-07-14 20:07:55.423870417 +0200
+@@ -4,6 +4,7 @@
+ #include "rx.h"
+ #include "en/xdp.h"
+ #include <net/xdp_sock.h>
++#include "../../backport_compat.h"
+ 
+ /* RX data path */
+ 

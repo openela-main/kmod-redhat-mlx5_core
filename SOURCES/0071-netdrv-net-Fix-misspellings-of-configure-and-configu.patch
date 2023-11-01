@@ -1,0 +1,66 @@
+From 7ae07e19237187f7fa84def13d5538e1015c20c7 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:03:47 -0400
+Subject: [PATCH 071/312] [netdrv] net: Fix misspellings of "configure" and
+ "configuration"
+
+Message-id: <20200510150452.10307-23-ahleihel@redhat.com>
+Patchwork-id: 306646
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 22/87] net: Fix misspellings of "configure" and "configuration"
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5-rc1
+Conflicts:
+ - Take mlx5 changes only.
+ - drivers/net/ethernet/mellanox/mlx5/core/en/port_buffer.c
+   Small context diff due to missing empty line in the comment section,
+   apply the needed hunk as well as adding back the missing empty line
+   to avoid more conflicts.
+
+commit c199ce4f9dd896c716aece33e6750be34aea1151
+Author: Geert Uytterhoeven <geert+renesas@glider.be>
+Date:   Thu Oct 24 17:22:01 2019 +0200
+
+    net: Fix misspellings of "configure" and "configuration"
+
+    Fix various misspellings of "configuration" and "configure".
+
+    Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+    Acked-by: Kalle Valo <kvalo@codeaurora.org>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en/port_buffer.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/port_buffer.c b/drivers/net/ethernet/mellanox/mlx5/core/en/port_buffer.c
+index 1fc4641077fd..ae99fac08b53 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/port_buffer.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/port_buffer.c
+@@ -177,12 +177,14 @@ static int update_xoff_threshold(struct mlx5e_port_buffer *port_buffer,
+  *	@xoff:   <input> xoff value
+  *	@port_buffer: <output> port receive buffer configuration
+  *	@change: <output>
+- *	Update buffer configuration based on pfc configuraiton and
++ *
++ *	Update buffer configuration based on pfc configuration and
+  *	priority to buffer mapping.
+  *	Buffer's lossy bit is changed to:
+  *		lossless if there is at least one PFC enabled priority
+  *		mapped to this buffer lossy if all priorities mapped to
+  *		this buffer are PFC disabled
++ *
+  *	@return: 0 if no error,
+  *	sets change to true if buffer configuration was modified.
+  */
+-- 
+2.13.6
+

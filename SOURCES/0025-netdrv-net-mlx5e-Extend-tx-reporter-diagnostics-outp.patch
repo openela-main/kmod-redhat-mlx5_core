@@ -1,0 +1,270 @@
+From 22b79810283de893e445fec4710fd5645cf90237 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:51:49 -0400
+Subject: [PATCH 025/312] [netdrv] net/mlx5e: Extend tx reporter diagnostics
+ output
+
+Message-id: <20200510145245.10054-27-ahleihel@redhat.com>
+Patchwork-id: 306567
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 26/82] net/mlx5e: Extend tx reporter diagnostics output
+Bugzilla: 1790198 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Bugzilla: http://bugzilla.redhat.com/1790198
+Upstream: v5.4-rc1
+
+commit 2d708887a4b1cb142c3179b3b1030dab047467b6
+Author: Aya Levin <ayal@mellanox.com>
+Date:   Sun Jun 30 11:34:15 2019 +0300
+
+    net/mlx5e: Extend tx reporter diagnostics output
+
+    Enhance tx reporter's diagnostics output to include: information common
+    to all SQs: SQ size, SQ stride size.
+    In addition add channel ix, tc, txq ix, cc and pc.
+
+    $ devlink health diagnose pci/0000:00:0b.0 reporter tx
+     Common config:
+       SQ:
+         stride size: 64 size: 1024
+     SQs:
+       channel ix: 0 tc: 0 txq ix: 0 sqn: 4307 HW state: 1 stopped: false cc: 0 pc: 0
+       channel ix: 1 tc: 0 txq ix: 1 sqn: 4312 HW state: 1 stopped: false cc: 0 pc: 0
+       channel ix: 2 tc: 0 txq ix: 2 sqn: 4317 HW state: 1 stopped: false cc: 0 pc: 0
+       channel ix: 3 tc: 0 txq ix: 3 sqn: 4322 HW state: 1 stopped: false cc: 0 pc: 0
+
+    $ devlink health diagnose pci/0000:00:0b.0 reporter tx -jp
+    {
+        "Common config": {
+            "SQ": {
+                "stride size": 64,
+                "size": 1024
+            }
+        },
+        "SQs": [ {
+                "channel ix": 0,
+                "tc": 0,
+                "txq ix": 0,
+                "sqn": 4307,
+                "HW state": 1,
+                "stopped": false,
+                "cc": 0,
+                "pc": 0
+            },{
+                "channel ix": 1,
+                "tc": 0,
+                "txq ix": 1,
+                "sqn": 4312,
+                "HW state": 1,
+                "stopped": false,
+                "cc": 0,
+                "pc": 0
+            },{
+                "channel ix": 2,
+                "tc": 0,
+                "txq ix": 2,
+                "sqn": 4317,
+                "HW state": 1,
+                "stopped": false,
+                "cc": 0,
+                "pc": 0
+            },{
+                "channel ix": 3,
+                "tc": 0,
+                "txq ix": 3,
+                "sqn": 4322,
+                "HW state": 1,
+                "stopped": false,
+                "cc": 0,
+                "pc": 0
+             } ]
+    }
+
+    Signed-off-by: Aya Levin <ayal@mellanox.com>
+    Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+    Acked-by: Jiri Pirko <jiri@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/en/health.c    | 30 ++++++++++
+ .../net/ethernet/mellanox/mlx5/core/en/health.h    |  3 +
+ .../ethernet/mellanox/mlx5/core/en/reporter_tx.c   | 69 +++++++++++++++++++---
+ 3 files changed, 94 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/health.c b/drivers/net/ethernet/mellanox/mlx5/core/en/health.c
+index fc3112921bd3..dab563f07157 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/health.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/health.c
+@@ -4,6 +4,36 @@
+ #include "health.h"
+ #include "lib/eq.h"
+ 
++int mlx5e_reporter_named_obj_nest_start(struct devlink_fmsg *fmsg, char *name)
++{
++	int err;
++
++	err = devlink_fmsg_pair_nest_start(fmsg, name);
++	if (err)
++		return err;
++
++	err = devlink_fmsg_obj_nest_start(fmsg);
++	if (err)
++		return err;
++
++	return 0;
++}
++
++int mlx5e_reporter_named_obj_nest_end(struct devlink_fmsg *fmsg)
++{
++	int err;
++
++	err = devlink_fmsg_obj_nest_end(fmsg);
++	if (err)
++		return err;
++
++	err = devlink_fmsg_pair_nest_end(fmsg);
++	if (err)
++		return err;
++
++	return 0;
++}
++
+ int mlx5e_health_sq_to_ready(struct mlx5e_channel *channel, u32 sqn)
+ {
+ 	struct mlx5_core_dev *mdev = channel->mdev;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/health.h b/drivers/net/ethernet/mellanox/mlx5/core/en/health.h
+index 386bda6104aa..112771ad516c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/health.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/health.h
+@@ -11,6 +11,9 @@ void mlx5e_reporter_tx_destroy(struct mlx5e_priv *priv);
+ void mlx5e_reporter_tx_err_cqe(struct mlx5e_txqsq *sq);
+ int mlx5e_reporter_tx_timeout(struct mlx5e_txqsq *sq);
+ 
++int mlx5e_reporter_named_obj_nest_start(struct devlink_fmsg *fmsg, char *name);
++int mlx5e_reporter_named_obj_nest_end(struct devlink_fmsg *fmsg);
++
+ #define MLX5E_REPORTER_PER_Q_MAX_LEN 256
+ 
+ struct mlx5e_err_ctx {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/reporter_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en/reporter_tx.c
+index b9429ff8d9c4..a5d0fcbb85af 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/reporter_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/reporter_tx.c
+@@ -146,7 +146,7 @@ static int mlx5e_tx_reporter_recover(struct devlink_health_reporter *reporter,
+ 
+ static int
+ mlx5e_tx_reporter_build_diagnose_output(struct devlink_fmsg *fmsg,
+-					struct mlx5e_txqsq *sq)
++					struct mlx5e_txqsq *sq, int tc)
+ {
+ 	struct mlx5e_priv *priv = sq->channel->priv;
+ 	bool stopped = netif_xmit_stopped(sq->txq);
+@@ -161,6 +161,18 @@ mlx5e_tx_reporter_build_diagnose_output(struct devlink_fmsg *fmsg,
+ 	if (err)
+ 		return err;
+ 
++	err = devlink_fmsg_u32_pair_put(fmsg, "channel ix", sq->ch_ix);
++	if (err)
++		return err;
++
++	err = devlink_fmsg_u32_pair_put(fmsg, "tc", tc);
++	if (err)
++		return err;
++
++	err = devlink_fmsg_u32_pair_put(fmsg, "txq ix", sq->txq_ix);
++	if (err)
++		return err;
++
+ 	err = devlink_fmsg_u32_pair_put(fmsg, "sqn", sq->sqn);
+ 	if (err)
+ 		return err;
+@@ -173,6 +185,14 @@ mlx5e_tx_reporter_build_diagnose_output(struct devlink_fmsg *fmsg,
+ 	if (err)
+ 		return err;
+ 
++	err = devlink_fmsg_u32_pair_put(fmsg, "cc", sq->cc);
++	if (err)
++		return err;
++
++	err = devlink_fmsg_u32_pair_put(fmsg, "pc", sq->pc);
++	if (err)
++		return err;
++
+ 	err = devlink_fmsg_obj_nest_end(fmsg);
+ 	if (err)
+ 		return err;
+@@ -184,24 +204,57 @@ static int mlx5e_tx_reporter_diagnose(struct devlink_health_reporter *reporter,
+ 				      struct devlink_fmsg *fmsg)
+ {
+ 	struct mlx5e_priv *priv = devlink_health_reporter_priv(reporter);
+-	int i, err = 0;
++	struct mlx5e_txqsq *generic_sq = priv->txq2sq[0];
++	u32 sq_stride, sq_sz;
++
++	int i, tc, err = 0;
+ 
+ 	mutex_lock(&priv->state_lock);
+ 
+ 	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
+ 		goto unlock;
+ 
++	sq_sz = mlx5_wq_cyc_get_size(&generic_sq->wq);
++	sq_stride = MLX5_SEND_WQE_BB;
++
++	err = mlx5e_reporter_named_obj_nest_start(fmsg, "Common Config");
++	if (err)
++		goto unlock;
++
++	err = mlx5e_reporter_named_obj_nest_start(fmsg, "SQ");
++	if (err)
++		goto unlock;
++
++	err = devlink_fmsg_u64_pair_put(fmsg, "stride size", sq_stride);
++	if (err)
++		goto unlock;
++
++	err = devlink_fmsg_u32_pair_put(fmsg, "size", sq_sz);
++	if (err)
++		goto unlock;
++
++	err = mlx5e_reporter_named_obj_nest_end(fmsg);
++	if (err)
++		goto unlock;
++
++	err = mlx5e_reporter_named_obj_nest_end(fmsg);
++	if (err)
++		goto unlock;
++
+ 	err = devlink_fmsg_arr_pair_nest_start(fmsg, "SQs");
+ 	if (err)
+ 		goto unlock;
+ 
+-	for (i = 0; i < priv->channels.num * priv->channels.params.num_tc;
+-	     i++) {
+-		struct mlx5e_txqsq *sq = priv->txq2sq[i];
++	for (i = 0; i < priv->channels.num; i++) {
++		struct mlx5e_channel *c = priv->channels.c[i];
++
++		for (tc = 0; tc < priv->channels.params.num_tc; tc++) {
++			struct mlx5e_txqsq *sq = &c->sq[tc];
+ 
+-		err = mlx5e_tx_reporter_build_diagnose_output(fmsg, sq);
+-		if (err)
+-			goto unlock;
++			err = mlx5e_tx_reporter_build_diagnose_output(fmsg, sq, tc);
++			if (err)
++				goto unlock;
++		}
+ 	}
+ 	err = devlink_fmsg_arr_pair_nest_end(fmsg);
+ 	if (err)
+-- 
+2.13.6
+

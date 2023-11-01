@@ -1,0 +1,90 @@
+From b881433dfe615d066de735fd8b7e49db22fd4460 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:51:32 -0400
+Subject: [PATCH 012/312] [netdrv] net/mlx5e: XDP, Slight enhancement for WQE
+ fetch function
+
+Message-id: <20200510145245.10054-10-ahleihel@redhat.com>
+Patchwork-id: 306549
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 09/82] net/mlx5e: XDP, Slight enhancement for WQE fetch function
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc1
+
+commit 7cf6f811b72aced0c48e1065fe059d604ef6363d
+Author: Tariq Toukan <tariqt@mellanox.com>
+Date:   Sun Jul 14 17:50:51 2019 +0300
+
+    net/mlx5e: XDP, Slight enhancement for WQE fetch function
+
+    Instead of passing an output param, let function return the
+    WQE pointer.
+    In addition, pass &pi so it gets its value in the function,
+    and save the redundant assignment that comes after it.
+
+    Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en/xdp.c |  4 +---
+ drivers/net/ethernet/mellanox/mlx5/core/en/xdp.h | 13 ++++++++-----
+ 2 files changed, 9 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/xdp.c b/drivers/net/ethernet/mellanox/mlx5/core/en/xdp.c
+index 8cb98326531f..1ed5c33e022f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/xdp.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/xdp.c
+@@ -187,14 +187,12 @@ static void mlx5e_xdp_mpwqe_session_start(struct mlx5e_xdpsq *sq)
+ 	if (unlikely(contig_wqebbs < MLX5_SEND_WQE_MAX_WQEBBS))
+ 		mlx5e_fill_xdpsq_frag_edge(sq, wq, pi, contig_wqebbs);
+ 
+-	mlx5e_xdpsq_fetch_wqe(sq, &session->wqe);
++	session->wqe = mlx5e_xdpsq_fetch_wqe(sq, &pi);
+ 
+ 	prefetchw(session->wqe->data);
+ 	session->ds_count  = MLX5E_XDP_TX_EMPTY_DS_COUNT;
+ 	session->pkt_count = 0;
+ 
+-	pi = mlx5_wq_cyc_ctr2ix(wq, sq->pc);
+-
+ 	mlx5e_xdp_update_inline_state(sq);
+ 
+ 	stats->mpwqe++;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/xdp.h b/drivers/net/ethernet/mellanox/mlx5/core/en/xdp.h
+index c52f72062b33..d7587f40ecae 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/xdp.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/xdp.h
+@@ -186,14 +186,17 @@ mlx5e_xdp_mpwqe_add_dseg(struct mlx5e_xdpsq *sq,
+ 	session->ds_count++;
+ }
+ 
+-static inline void mlx5e_xdpsq_fetch_wqe(struct mlx5e_xdpsq *sq,
+-					 struct mlx5e_tx_wqe **wqe)
++static inline struct mlx5e_tx_wqe *
++mlx5e_xdpsq_fetch_wqe(struct mlx5e_xdpsq *sq, u16 *pi)
+ {
+ 	struct mlx5_wq_cyc *wq = &sq->wq;
+-	u16 pi = mlx5_wq_cyc_ctr2ix(wq, sq->pc);
++	struct mlx5e_tx_wqe *wqe;
+ 
+-	*wqe = mlx5_wq_cyc_get_wqe(wq, pi);
+-	memset(*wqe, 0, sizeof(**wqe));
++	*pi = mlx5_wq_cyc_ctr2ix(wq, sq->pc);
++	wqe = mlx5_wq_cyc_get_wqe(wq, *pi);
++	memset(wqe, 0, sizeof(*wqe));
++
++	return wqe;
+ }
+ 
+ static inline void
+-- 
+2.13.6
+

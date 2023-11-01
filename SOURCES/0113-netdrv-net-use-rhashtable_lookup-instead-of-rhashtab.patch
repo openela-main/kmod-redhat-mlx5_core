@@ -1,0 +1,56 @@
+From d30f4fa003f76ccbe9522f732b478d90c60372d4 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:04:37 -0400
+Subject: [PATCH 113/312] [netdrv] net: use rhashtable_lookup() instead of
+ rhashtable_lookup_fast()
+
+Message-id: <20200510150452.10307-73-ahleihel@redhat.com>
+Patchwork-id: 306697
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 72/87] net: use rhashtable_lookup() instead of rhashtable_lookup_fast()
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5-rc1
+Conflicts:
+ - Take mlx5 chagnes only.
+
+commit ab818362c9054beb950b97a09ce7b0d56f5a32a1
+Author: Taehee Yoo <ap420073@gmail.com>
+Date:   Fri Nov 22 08:15:19 2019 +0000
+
+    net: use rhashtable_lookup() instead of rhashtable_lookup_fast()
+
+    rhashtable_lookup_fast() internally calls rcu_read_lock() then,
+    calls rhashtable_lookup(). So if rcu_read_lock() is already held,
+    rhashtable_lookup() is enough.
+
+    Signed-off-by: Taehee Yoo <ap420073@gmail.com>
+    Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index 0bc017569822..8afafb7eeb55 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -3853,7 +3853,7 @@ int mlx5e_delete_flower(struct net_device *dev, struct mlx5e_priv *priv,
+ 	int err;
+ 
+ 	rcu_read_lock();
+-	flow = rhashtable_lookup_fast(tc_ht, &f->cookie, tc_ht_params);
++	flow = rhashtable_lookup(tc_ht, &f->cookie, tc_ht_params);
+ 	if (!flow || !same_flow_direction(flow, flags)) {
+ 		err = -EINVAL;
+ 		goto errout;
+-- 
+2.13.6
+

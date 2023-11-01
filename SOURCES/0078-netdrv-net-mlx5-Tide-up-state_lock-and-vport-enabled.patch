@@ -1,0 +1,119 @@
+From c5c504f4dc8c98a1c62d8cee2cf175097fb68ff9 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:03:55 -0400
+Subject: [PATCH 078/312] [netdrv] net/mlx5: Tide up state_lock and vport
+ enabled flag usage
+
+Message-id: <20200510150452.10307-31-ahleihel@redhat.com>
+Patchwork-id: 306654
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 30/87] net/mlx5: Tide up state_lock and vport enabled flag usage
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5-rc1
+
+commit 77b094305b1ba23e716bb34d3e33c8fe30a5f487
+Author: Parav Pandit <parav@mellanox.com>
+Date:   Mon Oct 28 23:35:13 2019 +0000
+
+    net/mlx5: Tide up state_lock and vport enabled flag usage
+
+    When eswitch is disabled, vport event handler is unregistered.
+    This unregistration already synchronizes with running EQ event handler
+    in below code flow.
+
+    mlx5_eswitch_disable()
+      mlx5_eswitch_event_handlers_unregister()
+        mlx5_eq_notifier_unregister()
+          atomic_notifier_chain_unregister()
+            synchronize_rcu()
+
+    notifier_callchain
+      eswitch_vport_event()
+        queue_work()
+
+    Additionally vport->enabled flag is set under state_lock during
+    esw_enable_vport() but is not read under state_lock in
+    (a) esw_disable_vport() and (b) under atomic context
+    eswitch_vport_event().
+
+    It is also necessary to synchronize with already scheduled vport event.
+    This is already achieved using below sequence.
+
+    mlx5_eswitch_event_handlers_unregister()
+      [..]
+      flush_workqueue()
+
+    Hence,
+    (a) Remove vport->enabled check in eswitch_vport_event() which
+    doesn't make any sense.
+    (b) Remove redundant flush_workqueue() on every vport disable.
+    (c) Keep esw_disable_vport() symmetric with esw_enable_vport() for
+    state_lock.
+
+    Signed-off-by: Parav Pandit <parav@mellanox.com>
+    Reviewed-by: Vu Pham <vuhuong@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 14 +++++---------
+ 1 file changed, 5 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 54b5f290ab9d..8067667fd59e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -1745,18 +1745,16 @@ static void esw_disable_vport(struct mlx5_eswitch *esw,
+ {
+ 	u16 vport_num = vport->vport;
+ 
++	mutex_lock(&esw->state_lock);
+ 	if (!vport->enabled)
+-		return;
++		goto done;
+ 
+ 	esw_debug(esw->dev, "Disabling vport(%d)\n", vport_num);
+ 	/* Mark this vport as disabled to discard new events */
+ 	vport->enabled = false;
+ 
+-	/* Wait for current already scheduled events to complete */
+-	flush_workqueue(esw->work_queue);
+ 	/* Disable events from this vport */
+ 	arm_vport_context_events_cmd(esw->dev, vport->vport, 0);
+-	mutex_lock(&esw->state_lock);
+ 	/* We don't assume VFs will cleanup after themselves.
+ 	 * Calling vport change handler while vport is disabled will cleanup
+ 	 * the vport resources.
+@@ -1775,6 +1773,8 @@ static void esw_disable_vport(struct mlx5_eswitch *esw,
+ 		esw_legacy_vport_destroy_drop_counters(vport);
+ 	}
+ 	esw->enabled_vports--;
++
++done:
+ 	mutex_unlock(&esw->state_lock);
+ }
+ 
+@@ -1788,12 +1788,8 @@ static int eswitch_vport_event(struct notifier_block *nb,
+ 
+ 	vport_num = be16_to_cpu(eqe->data.vport_change.vport_num);
+ 	vport = mlx5_eswitch_get_vport(esw, vport_num);
+-	if (IS_ERR(vport))
+-		return NOTIFY_OK;
+-
+-	if (vport->enabled)
++	if (!IS_ERR(vport))
+ 		queue_work(esw->work_queue, &vport->vport_change_handler);
+-
+ 	return NOTIFY_OK;
+ }
+ 
+-- 
+2.13.6
+

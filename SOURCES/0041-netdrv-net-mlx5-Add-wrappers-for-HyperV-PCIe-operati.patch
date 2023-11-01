@@ -1,0 +1,159 @@
+From c77866236e272b0520fba28dd04977c85c672167 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:52:07 -0400
+Subject: [PATCH 041/312] [netdrv] net/mlx5: Add wrappers for HyperV PCIe
+ operations
+
+Message-id: <20200510145245.10054-45-ahleihel@redhat.com>
+Patchwork-id: 306586
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 44/82] net/mlx5: Add wrappers for HyperV PCIe operations
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc1
+
+commit 913d14e866573350de3adede3c90cefb81944b0c
+Author: Eran Ben Elisha <eranbe@mellanox.com>
+Date:   Thu Aug 22 05:05:47 2019 +0000
+
+    net/mlx5: Add wrappers for HyperV PCIe operations
+
+    Add wrapper functions for HyperV PCIe read / write /
+    block_invalidate_register operations.  This will be used as an
+    infrastructure in the downstream patch for software communication.
+
+    This will be enabled by default if CONFIG_PCI_HYPERV_INTERFACE is set.
+
+    Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+    Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile |  1 +
+ drivers/net/ethernet/mellanox/mlx5/core/lib/hv.c | 64 ++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/lib/hv.h | 22 ++++++++
+ 3 files changed, 87 insertions(+)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/lib/hv.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/lib/hv.h
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index 3ac94d97cc24..d14a13557c0c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -45,6 +45,7 @@ mlx5_core-$(CONFIG_MLX5_ESWITCH)   += eswitch.o eswitch_offloads.o eswitch_offlo
+ mlx5_core-$(CONFIG_MLX5_MPFS)      += lib/mpfs.o
+ mlx5_core-$(CONFIG_VXLAN)          += lib/vxlan.o
+ mlx5_core-$(CONFIG_PTP_1588_CLOCK) += lib/clock.o
++mlx5_core-$(CONFIG_PCI_HYPERV_INTERFACE) += lib/hv.o
+ 
+ #
+ # Ipoib netdev
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lib/hv.c b/drivers/net/ethernet/mellanox/mlx5/core/lib/hv.c
+new file mode 100644
+index 000000000000..cf08d02703fb
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/lib/hv.c
+@@ -0,0 +1,64 @@
++// SPDX-License-Identifier: GPL-2.0 OR Linux-OpenIB
++// Copyright (c) 2018 Mellanox Technologies
++
++#include <linux/hyperv.h>
++#include "mlx5_core.h"
++#include "lib/hv.h"
++
++static int mlx5_hv_config_common(struct mlx5_core_dev *dev, void *buf, int len,
++				 int offset, bool read)
++{
++	int rc = -EOPNOTSUPP;
++	int bytes_returned;
++	int block_id;
++
++	if (offset % HV_CONFIG_BLOCK_SIZE_MAX || len % HV_CONFIG_BLOCK_SIZE_MAX)
++		return -EINVAL;
++
++	block_id = offset / HV_CONFIG_BLOCK_SIZE_MAX;
++
++	rc = read ?
++	     hyperv_read_cfg_blk(dev->pdev, buf,
++				 HV_CONFIG_BLOCK_SIZE_MAX, block_id,
++				 &bytes_returned) :
++	     hyperv_write_cfg_blk(dev->pdev, buf,
++				  HV_CONFIG_BLOCK_SIZE_MAX, block_id);
++
++	/* Make sure len bytes were read successfully  */
++	if (read)
++		rc |= !(len == bytes_returned);
++
++	if (rc) {
++		mlx5_core_err(dev, "Failed to %s hv config, err = %d, len = %d, offset = %d\n",
++			      read ? "read" : "write", rc, len,
++			      offset);
++		return rc;
++	}
++
++	return 0;
++}
++
++int mlx5_hv_read_config(struct mlx5_core_dev *dev, void *buf, int len,
++			int offset)
++{
++	return mlx5_hv_config_common(dev, buf, len, offset, true);
++}
++
++int mlx5_hv_write_config(struct mlx5_core_dev *dev, void *buf, int len,
++			 int offset)
++{
++	return mlx5_hv_config_common(dev, buf, len, offset, false);
++}
++
++int mlx5_hv_register_invalidate(struct mlx5_core_dev *dev, void *context,
++				void (*block_invalidate)(void *context,
++							 u64 block_mask))
++{
++	return hyperv_reg_block_invalidate(dev->pdev, context,
++					   block_invalidate);
++}
++
++void mlx5_hv_unregister_invalidate(struct mlx5_core_dev *dev)
++{
++	hyperv_reg_block_invalidate(dev->pdev, NULL, NULL);
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lib/hv.h b/drivers/net/ethernet/mellanox/mlx5/core/lib/hv.h
+new file mode 100644
+index 000000000000..f9a45573f459
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/lib/hv.h
+@@ -0,0 +1,22 @@
++/* SPDX-License-Identifier: GPL-2.0 OR Linux-OpenIB */
++/* Copyright (c) 2019 Mellanox Technologies. */
++
++#ifndef __LIB_HV_H__
++#define __LIB_HV_H__
++
++#if IS_ENABLED(CONFIG_PCI_HYPERV_INTERFACE)
++
++#include <linux/hyperv.h>
++#include <linux/mlx5/driver.h>
++
++int mlx5_hv_read_config(struct mlx5_core_dev *dev, void *buf, int len,
++			int offset);
++int mlx5_hv_write_config(struct mlx5_core_dev *dev, void *buf, int len,
++			 int offset);
++int mlx5_hv_register_invalidate(struct mlx5_core_dev *dev, void *context,
++				void (*block_invalidate)(void *context,
++							 u64 block_mask));
++void mlx5_hv_unregister_invalidate(struct mlx5_core_dev *dev);
++#endif
++
++#endif /* __LIB_HV_H__ */
+-- 
+2.13.6
+

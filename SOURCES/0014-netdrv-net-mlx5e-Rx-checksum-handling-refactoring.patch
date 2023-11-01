@@ -1,0 +1,88 @@
+From e31d980ab9849683588324b04f8596e901b3721e Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:51:34 -0400
+Subject: [PATCH 014/312] [netdrv] net/mlx5e: Rx, checksum handling refactoring
+
+Message-id: <20200510145245.10054-12-ahleihel@redhat.com>
+Patchwork-id: 306554
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 11/82] net/mlx5e: Rx, checksum handling refactoring
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc1
+
+commit 8c7698d5caa7852bebae0cf7402b7d3a1f30423b
+Author: Saeed Mahameed <saeedm@mellanox.com>
+Date:   Fri May 3 15:12:46 2019 -0700
+
+    net/mlx5e: Rx, checksum handling refactoring
+
+    Move vlan checksum fixup flow into mlx5e_skb_padding_csum(), which is
+    supposed to fixup SKB checksum if needed. And rename
+    mlx5e_skb_padding_csum() to mlx5e_skb_csum_fixup().
+
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c | 26 +++++++++++++------------
+ 1 file changed, 14 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index 6518d1101de0..a22b3a3db253 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -860,13 +860,24 @@ tail_padding_csum(struct sk_buff *skb, int offset,
+ }
+ 
+ static void
+-mlx5e_skb_padding_csum(struct sk_buff *skb, int network_depth, __be16 proto,
+-		       struct mlx5e_rq_stats *stats)
++mlx5e_skb_csum_fixup(struct sk_buff *skb, int network_depth, __be16 proto,
++		     struct mlx5e_rq_stats *stats)
+ {
+ 	struct ipv6hdr *ip6;
+ 	struct iphdr   *ip4;
+ 	int pkt_len;
+ 
++	/* Fixup vlan headers, if any */
++	if (network_depth > ETH_HLEN)
++		/* CQE csum is calculated from the IP header and does
++		 * not cover VLAN headers (if present). This will add
++		 * the checksum manually.
++		 */
++		skb->csum = csum_partial(skb->data + ETH_HLEN,
++					 network_depth - ETH_HLEN,
++					 skb->csum);
++
++	/* Fixup tail padding, if any */
+ 	switch (proto) {
+ 	case htons(ETH_P_IP):
+ 		ip4 = (struct iphdr *)(skb->data + network_depth);
+@@ -932,16 +943,7 @@ static inline void mlx5e_handle_csum(struct net_device *netdev,
+ 			return; /* CQE csum covers all received bytes */
+ 
+ 		/* csum might need some fixups ...*/
+-		if (network_depth > ETH_HLEN)
+-			/* CQE csum is calculated from the IP header and does
+-			 * not cover VLAN headers (if present). This will add
+-			 * the checksum manually.
+-			 */
+-			skb->csum = csum_partial(skb->data + ETH_HLEN,
+-						 network_depth - ETH_HLEN,
+-						 skb->csum);
+-
+-		mlx5e_skb_padding_csum(skb, network_depth, proto, stats);
++		mlx5e_skb_csum_fixup(skb, network_depth, proto, stats);
+ 		return;
+ 	}
+ 
+-- 
+2.13.6
+

@@ -1,0 +1,53 @@
+From 9f67af245d4302d403f376a8574965b1df5e8682 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:04:48 -0400
+Subject: [PATCH 123/312] [netdrv] net/mlx5: Update the list of the PCI
+ supported devices
+
+Message-id: <20200510150452.10307-84-ahleihel@redhat.com>
+Patchwork-id: 306708
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 83/87] net/mlx5: Update the list of the PCI supported devices
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5
+
+commit 505a7f5478062c6cd11e22022d9f1bf64cd8eab3
+Author: Meir Lichtinger <meirl@mellanox.com>
+Date:   Thu Dec 12 16:09:33 2019 +0200
+
+    net/mlx5: Update the list of the PCI supported devices
+
+    Add the upcoming ConnectX-7 device ID.
+
+    Fixes: 85327a9c4150 ("net/mlx5: Update the list of the PCI supported devices")
+    Signed-off-by: Meir Lichtinger <meirl@mellanox.com>
+    Reviewed-by: Eran Ben Elisha <eranbe@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/main.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index f34eeb5af1ef..05d66dd6791b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -1591,6 +1591,7 @@ static const struct pci_device_id mlx5_core_pci_table[] = {
+ 	{ PCI_VDEVICE(MELLANOX, 0x101d) },			/* ConnectX-6 Dx */
+ 	{ PCI_VDEVICE(MELLANOX, 0x101e), MLX5_PCI_DEV_IS_VF},	/* ConnectX Family mlx5Gen Virtual Function */
+ 	{ PCI_VDEVICE(MELLANOX, 0x101f) },			/* ConnectX-6 LX */
++	{ PCI_VDEVICE(MELLANOX, 0x1021) },			/* ConnectX-7 */
+ 	{ PCI_VDEVICE(MELLANOX, 0xa2d2) },			/* BlueField integrated ConnectX-5 network controller */
+ 	{ PCI_VDEVICE(MELLANOX, 0xa2d3), MLX5_PCI_DEV_IS_VF},	/* BlueField integrated ConnectX-5 network controller VF */
+ 	{ PCI_VDEVICE(MELLANOX, 0xa2d6) },			/* BlueField-2 integrated ConnectX-6 Dx network controller */
+-- 
+2.13.6
+

@@ -1,0 +1,220 @@
+From 0adbd26f7bfb53e99b9726e4c4ba399ce91fb7b5 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:49:08 -0400
+Subject: [PATCH 246/312] [netdrv] net/mlx5e: CT: Support clear action
+
+Message-id: <20200519074934.6303-38-ahleihel@redhat.com>
+Patchwork-id: 310539
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 37/63] net/mlx5e: CT: Support clear action
+Bugzilla: 1790219 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Bugzilla: http://bugzilla.redhat.com/1790219
+Upstream: v5.7-rc1
+
+commit 1ef3018f5af3da6376fae546e4dfc3f05f063815
+Author: Paul Blakey <paulb@mellanox.com>
+Date:   Thu Mar 12 12:23:17 2020 +0200
+
+    net/mlx5e: CT: Support clear action
+
+    Clear action, as with software, removes all ct metadata from
+    the packet.
+
+    Signed-off-by: Paul Blakey <paulb@mellanox.com>
+    Reviewed-by: Oz Shlomo <ozsh@mellanox.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.c | 90 ++++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.h |  7 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    | 10 ++-
+ 3 files changed, 95 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.c b/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.c
+index c75dc97fd3a7..956d9ddcdeed 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.c
+@@ -1048,12 +1048,79 @@ __mlx5_tc_ct_flow_offload(struct mlx5e_priv *priv,
+ 	return err;
+ }
+ 
++static int
++__mlx5_tc_ct_flow_offload_clear(struct mlx5e_priv *priv,
++				struct mlx5e_tc_flow *flow,
++				struct mlx5_flow_spec *orig_spec,
++				struct mlx5_esw_flow_attr *attr,
++				struct mlx5e_tc_mod_hdr_acts *mod_acts,
++				struct mlx5_flow_handle **flow_rule)
++{
++	struct mlx5_tc_ct_priv *ct_priv = mlx5_tc_ct_get_ct_priv(priv);
++	struct mlx5_eswitch *esw = ct_priv->esw;
++	struct mlx5_esw_flow_attr *pre_ct_attr;
++	struct mlx5_modify_hdr *mod_hdr;
++	struct mlx5_flow_handle *rule;
++	struct mlx5_ct_flow *ct_flow;
++	int err;
++
++	ct_flow = kzalloc(sizeof(*ct_flow), GFP_KERNEL);
++	if (!ct_flow)
++		return -ENOMEM;
++
++	/* Base esw attributes on original rule attribute */
++	pre_ct_attr = &ct_flow->pre_ct_attr;
++	memcpy(pre_ct_attr, attr, sizeof(*attr));
++
++	err = mlx5_tc_ct_entry_set_registers(ct_priv, mod_acts, 0, 0, 0, 0);
++	if (err) {
++		ct_dbg("Failed to set register for ct clear");
++		goto err_set_registers;
++	}
++
++	mod_hdr = mlx5_modify_header_alloc(esw->dev,
++					   MLX5_FLOW_NAMESPACE_FDB,
++					   mod_acts->num_actions,
++					   mod_acts->actions);
++	if (IS_ERR(mod_hdr)) {
++		err = PTR_ERR(mod_hdr);
++		ct_dbg("Failed to add create ct clear mod hdr");
++		goto err_set_registers;
++	}
++
++	dealloc_mod_hdr_actions(mod_acts);
++	pre_ct_attr->modify_hdr = mod_hdr;
++	pre_ct_attr->action |= MLX5_FLOW_CONTEXT_ACTION_MOD_HDR;
++
++	rule = mlx5_eswitch_add_offloaded_rule(esw, orig_spec, pre_ct_attr);
++	if (IS_ERR(rule)) {
++		err = PTR_ERR(rule);
++		ct_dbg("Failed to add ct clear rule");
++		goto err_insert;
++	}
++
++	attr->ct_attr.ct_flow = ct_flow;
++	ct_flow->pre_ct_rule = rule;
++	*flow_rule = rule;
++
++	return 0;
++
++err_insert:
++	mlx5_modify_header_dealloc(priv->mdev, mod_hdr);
++err_set_registers:
++	netdev_warn(priv->netdev,
++		    "Failed to offload ct clear flow, err %d\n", err);
++	return err;
++}
++
+ struct mlx5_flow_handle *
+ mlx5_tc_ct_flow_offload(struct mlx5e_priv *priv,
+ 			struct mlx5e_tc_flow *flow,
+ 			struct mlx5_flow_spec *spec,
+-			struct mlx5_esw_flow_attr *attr)
++			struct mlx5_esw_flow_attr *attr,
++			struct mlx5e_tc_mod_hdr_acts *mod_hdr_acts)
+ {
++	bool clear_action = attr->ct_attr.ct_action & TCA_CT_ACT_CLEAR;
+ 	struct mlx5_tc_ct_priv *ct_priv = mlx5_tc_ct_get_ct_priv(priv);
+ 	struct mlx5_flow_handle *rule;
+ 	int err;
+@@ -1062,7 +1129,12 @@ mlx5_tc_ct_flow_offload(struct mlx5e_priv *priv,
+ 		return ERR_PTR(-EOPNOTSUPP);
+ 
+ 	mutex_lock(&ct_priv->control_lock);
+-	err = __mlx5_tc_ct_flow_offload(priv, flow, spec, attr, &rule);
++	if (clear_action)
++		err = __mlx5_tc_ct_flow_offload_clear(priv, flow, spec, attr,
++						      mod_hdr_acts, &rule);
++	else
++		err = __mlx5_tc_ct_flow_offload(priv, flow, spec, attr,
++						&rule);
+ 	mutex_unlock(&ct_priv->control_lock);
+ 	if (err)
+ 		return ERR_PTR(err);
+@@ -1080,11 +1152,15 @@ __mlx5_tc_ct_delete_flow(struct mlx5_tc_ct_priv *ct_priv,
+ 	mlx5_eswitch_del_offloaded_rule(esw, ct_flow->pre_ct_rule,
+ 					pre_ct_attr);
+ 	mlx5_modify_header_dealloc(esw->dev, pre_ct_attr->modify_hdr);
+-	mlx5_eswitch_del_offloaded_rule(esw, ct_flow->post_ct_rule,
+-					&ct_flow->post_ct_attr);
+-	mlx5_esw_chains_put_chain_mapping(esw, ct_flow->chain_mapping);
+-	idr_remove(&ct_priv->fte_ids, ct_flow->fte_id);
+-	mlx5_tc_ct_del_ft_cb(ct_priv, ct_flow->ft);
++
++	if (ct_flow->post_ct_rule) {
++		mlx5_eswitch_del_offloaded_rule(esw, ct_flow->post_ct_rule,
++						&ct_flow->post_ct_attr);
++		mlx5_esw_chains_put_chain_mapping(esw, ct_flow->chain_mapping);
++		idr_remove(&ct_priv->fte_ids, ct_flow->fte_id);
++		mlx5_tc_ct_del_ft_cb(ct_priv, ct_flow->ft);
++	}
++
+ 	kfree(ct_flow);
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.h b/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.h
+index 464c86595309..6b2c893372da 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.h
+@@ -9,6 +9,7 @@
+ #include <net/tc_act/tc_ct.h>
+ 
+ struct mlx5_esw_flow_attr;
++struct mlx5e_tc_mod_hdr_acts;
+ struct mlx5_rep_uplink_priv;
+ struct mlx5e_tc_flow;
+ struct mlx5e_priv;
+@@ -97,7 +98,8 @@ struct mlx5_flow_handle *
+ mlx5_tc_ct_flow_offload(struct mlx5e_priv *priv,
+ 			struct mlx5e_tc_flow *flow,
+ 			struct mlx5_flow_spec *spec,
+-			struct mlx5_esw_flow_attr *attr);
++			struct mlx5_esw_flow_attr *attr,
++			struct mlx5e_tc_mod_hdr_acts *mod_hdr_acts);
+ void
+ mlx5_tc_ct_delete_flow(struct mlx5e_priv *priv,
+ 		       struct mlx5e_tc_flow *flow,
+@@ -142,7 +144,8 @@ static inline struct mlx5_flow_handle *
+ mlx5_tc_ct_flow_offload(struct mlx5e_priv *priv,
+ 			struct mlx5e_tc_flow *flow,
+ 			struct mlx5_flow_spec *spec,
+-			struct mlx5_esw_flow_attr *attr)
++			struct mlx5_esw_flow_attr *attr,
++			struct mlx5e_tc_mod_hdr_acts *mod_hdr_acts)
+ {
+ 	return ERR_PTR(-EOPNOTSUPP);
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index f88b199487d2..48e4d7a5f7b8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -1151,11 +1151,15 @@ mlx5e_tc_offload_fdb_rules(struct mlx5_eswitch *esw,
+ 			   struct mlx5_flow_spec *spec,
+ 			   struct mlx5_esw_flow_attr *attr)
+ {
++	struct mlx5e_tc_mod_hdr_acts *mod_hdr_acts;
+ 	struct mlx5_flow_handle *rule;
+-	struct mlx5e_tc_mod_hdr_acts;
+ 
+-	if (flow_flag_test(flow, CT))
+-		return mlx5_tc_ct_flow_offload(flow->priv, flow, spec, attr);
++	if (flow_flag_test(flow, CT)) {
++		mod_hdr_acts = &attr->parse_attr->mod_hdr_acts;
++
++		return mlx5_tc_ct_flow_offload(flow->priv, flow, spec, attr,
++					       mod_hdr_acts);
++	}
+ 
+ 	rule = mlx5_eswitch_add_offloaded_rule(esw, spec, attr);
+ 	if (IS_ERR(rule))
+-- 
+2.13.6
+

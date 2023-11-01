@@ -1,0 +1,84 @@
+From edf3630554bc462e0bee93faa5685e8e11a5a936 Mon Sep 17 00:00:00 2001
+From: Jiri Benc <jbenc@redhat.com>
+Date: Wed, 22 Apr 2020 18:18:00 -0400
+Subject: [PATCH 005/312] [netdrv] net/mlx5e: Move the SW XSK code from NAPI
+ poll to a separate function
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Message-id: <6bb2443d30349d894a710f787928942121ac29dc.1587578778.git.jbenc@redhat.com>
+Patchwork-id: 304519
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 net 09/46] net/mlx5e: Move the SW XSK code from NAPI poll to a separate function
+Bugzilla: 1819630
+RH-Acked-by: Hangbin Liu <haliu@redhat.com>
+RH-Acked-by: Toke Høiland-Jørgensen <toke@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+
+Bugzilla: https://bugzilla.redhat.com/show_bug.cgi?id=1819630
+
+commit 871aa189a69f7bbe6254459d17b78e1cce65c9ae
+Author: Maxim Mikityanskiy <maximmi@mellanox.com>
+Date:   Wed Aug 14 09:27:22 2019 +0200
+
+    net/mlx5e: Move the SW XSK code from NAPI poll to a separate function
+
+    Two XSK tasks are performed during NAPI polling, that are not bound to
+    hardware interrupts: TXing packets and polling for frames in the Fill
+    Ring. They are special in a way that the hardware doesn't know about
+    these tasks, so it doesn't trigger interrupts if there is still some
+    work to be done, it's our driver's responsibility to ensure NAPI will be
+    rescheduled if needed.
+
+    Create a new function to handle these tasks and move the corresponding
+    code from mlx5e_napi_poll to the new function to improve modularity and
+    prepare for the changes in the following patch.
+
+    Signed-off-by: Maxim Mikityanskiy <maximmi@mellanox.com>
+    Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+    Reviewed-by: Saeed Mahameed <saeedm@mellanox.com>
+    Acked-by: Jonathan Lemon <jonathan.lemon@gmail.com>
+    Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+Signed-off-by: Timothy Redaelli <tredaelli@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+index 49b06b256c92..6d16dee38ede 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+@@ -81,6 +81,16 @@ void mlx5e_trigger_irq(struct mlx5e_icosq *sq)
+ 	mlx5e_notify_hw(wq, sq->pc, sq->uar_map, &nopwqe->ctrl);
+ }
+ 
++static bool mlx5e_napi_xsk_post(struct mlx5e_xdpsq *xsksq, struct mlx5e_rq *xskrq)
++{
++	bool busy_xsk = false;
++
++	busy_xsk |= mlx5e_xsk_tx(xsksq, MLX5E_TX_XSK_POLL_BUDGET);
++	busy_xsk |= xskrq->post_wqes(xskrq);
++
++	return busy_xsk;
++}
++
+ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct mlx5e_channel *c = container_of(napi, struct mlx5e_channel,
+@@ -122,8 +132,7 @@ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
+ 	if (xsk_open) {
+ 		mlx5e_poll_ico_cq(&c->xskicosq.cq);
+ 		busy |= mlx5e_poll_xdpsq_cq(&xsksq->cq);
+-		busy_xsk |= mlx5e_xsk_tx(xsksq, MLX5E_TX_XSK_POLL_BUDGET);
+-		busy_xsk |= xskrq->post_wqes(xskrq);
++		busy_xsk |= mlx5e_napi_xsk_post(xsksq, xskrq);
+ 	}
+ 
+ 	busy |= busy_xsk;
+-- 
+2.13.6
+

@@ -1,0 +1,65 @@
+From 4e68ad174a7731f7ecb6d6ee2d02af52f2f8eb80 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:55:14 -0400
+Subject: [PATCH 198/312] [netdrv] net/mlx5e: Fix nest_level for vlan pop
+ action
+
+Message-id: <20200512105530.4207-109-ahleihel@redhat.com>
+Patchwork-id: 306980
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 108/124] net/mlx5e: Fix nest_level for vlan pop action
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.7-rc2
+
+commit 70f478ca085deec4d6c1f187f773f5827ddce7e8
+Author: Dmytro Linkin <dmitrolin@mellanox.com>
+Date:   Wed Apr 1 14:41:27 2020 +0300
+
+    net/mlx5e: Fix nest_level for vlan pop action
+
+    Current value of nest_level, assigned from net_device lower_level value,
+    does not reflect the actual number of vlan headers, needed to pop.
+    For ex., if we have untagged ingress traffic sended over vlan devices,
+    instead of one pop action, driver will perform two pop actions.
+    To fix that, calculate nest_level as difference between vlan device and
+    parent device lower_levels.
+
+    Fixes: f3b0a18bb6cb ("net: remove unnecessary variables and callback")
+    Signed-off-by: Dmytro Linkin <dmitrolin@mellanox.com>
+    Signed-off-by: Roi Dayan <roid@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index c455f73cd54e..3461aec49d9e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -3257,12 +3257,13 @@ static int add_vlan_pop_action(struct mlx5e_priv *priv,
+ 			       struct mlx5_esw_flow_attr *attr,
+ 			       u32 *action)
+ {
+-	int nest_level = vlan_get_encap_level(attr->parse_attr->filter_dev);
+ 	struct flow_action_entry vlan_act = {
+ 		.id = FLOW_ACTION_VLAN_POP,
+ 	};
+-	int err = 0;
++	int nest_level, err = 0;
+ 
++	nest_level = vlan_get_encap_level(attr->parse_attr->filter_dev) -
++				       vlan_get_encap_level(priv->netdev);
+ 	while (nest_level--) {
+ 		err = parse_tc_vlan_action(priv, &vlan_act, attr, action);
+ 		if (err)
+-- 
+2.13.6
+

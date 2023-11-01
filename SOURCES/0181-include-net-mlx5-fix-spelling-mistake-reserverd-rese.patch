@@ -1,0 +1,51 @@
+From 904bb79608c74b9427084cc653fec90fff5b3701 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:53 -0400
+Subject: [PATCH 181/312] [include] net/mlx5: fix spelling mistake "reserverd"
+ -> "reserved"
+
+Message-id: <20200512105530.4207-88-ahleihel@redhat.com>
+Patchwork-id: 306959
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 087/124] net/mlx5: fix spelling mistake "reserverd" -> "reserved"
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.7-rc1
+
+commit d8fab4815a371e8013e1a769c31da1bcaf618b01
+Author: Alexandre Belloni <alexandre.belloni@bootlin.com>
+Date:   Fri Feb 14 15:30:01 2020 +0100
+
+    net/mlx5: fix spelling mistake "reserverd" -> "reserved"
+
+    The reserved member should be named reserved.
+
+    Signed-off-by: Alexandre Belloni <alexandre.belloni@bootlin.com>
+    Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ include/linux/mlx5/mlx5_ifc_fpga.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/linux/mlx5/mlx5_ifc_fpga.h b/include/linux/mlx5/mlx5_ifc_fpga.h
+index 37e065a80a43..07d77323f78a 100644
+--- a/include/linux/mlx5/mlx5_ifc_fpga.h
++++ b/include/linux/mlx5/mlx5_ifc_fpga.h
+@@ -608,7 +608,7 @@ struct mlx5_ifc_tls_cmd_bits {
+ struct mlx5_ifc_tls_resp_bits {
+ 	u8         syndrome[0x20];
+ 	u8         stream_id[0x20];
+-	u8         reserverd[0x40];
++	u8         reserved[0x40];
+ };
+ 
+ #define MLX5_TLS_COMMAND_SIZE (0x100)
+-- 
+2.13.6
+

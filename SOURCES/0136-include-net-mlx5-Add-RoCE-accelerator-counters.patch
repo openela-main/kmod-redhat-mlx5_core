@@ -1,0 +1,71 @@
+From b35a2cafae3805917b9ad9064e9410f0524ac5e9 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:53:50 -0400
+Subject: [PATCH 136/312] [include] net/mlx5: Add RoCE accelerator counters
+
+Message-id: <20200512105530.4207-25-ahleihel@redhat.com>
+Patchwork-id: 306896
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 024/124] net/mlx5: Add RoCE accelerator counters
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.6-rc1
+
+commit 8fd5b75d979bd8483b7e015c85834fbc82d499ac
+Author: Leon Romanovsky <leonro@mellanox.com>
+Date:   Wed Jan 15 16:54:58 2020 +0200
+
+    net/mlx5: Add RoCE accelerator counters
+
+    Add RoCE accelerator definitions.
+
+    Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ include/linux/mlx5/mlx5_ifc.h | 17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 1285f31b5f5c..e7f293ce80cf 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -1200,7 +1200,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 	u8         reserved_at_130[0xa];
+ 	u8         log_max_ra_res_dc[0x6];
+ 
+-	u8         reserved_at_140[0xa];
++	u8         reserved_at_140[0x9];
++	u8         roce_accl[0x1];
+ 	u8         log_max_ra_req_qp[0x6];
+ 	u8         reserved_at_150[0xa];
+ 	u8         log_max_ra_res_qp[0x6];
+@@ -4751,7 +4752,19 @@ struct mlx5_ifc_query_q_counter_out_bits {
+ 
+ 	u8         req_cqe_flush_error[0x20];
+ 
+-	u8         reserved_at_620[0x1e0];
++	u8         reserved_at_620[0x20];
++
++	u8         roce_adp_retrans[0x20];
++
++	u8         roce_adp_retrans_to[0x20];
++
++	u8         roce_slow_restart[0x20];
++
++	u8         roce_slow_restart_cnps[0x20];
++
++	u8         roce_slow_restart_trans[0x20];
++
++	u8         reserved_at_6e0[0x120];
+ };
+ 
+ struct mlx5_ifc_query_q_counter_in_bits {
+-- 
+2.13.6
+

@@ -1,0 +1,56 @@
+From c667484c074aea8fe652eeb7a9e5e24438436a69 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:52:41 -0400
+Subject: [PATCH 066/312] [netdrv] net/mlx5e: Remove incorrect match criteria
+ assignment line
+
+Message-id: <20200510145245.10054-79-ahleihel@redhat.com>
+Patchwork-id: 306620
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 78/82] net/mlx5e: Remove incorrect match criteria assignment line
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc6
+
+commit 752d3dc06d6936d5a357a18b6b51d91c7e134e88
+Author: Dmytro Linkin <dmitrolin@mellanox.com>
+Date:   Thu Aug 29 15:24:27 2019 +0000
+
+    net/mlx5e: Remove incorrect match criteria assignment line
+
+    Driver have function, which enable match criteria for misc parameters
+    in dependence of eswitch capabilities.
+
+    Fixes: 4f5d1beadc10 ("Merge branch 'mlx5-next' of git://git.kernel.org/pub/scm/linux/kernel/git/mellanox/linux")
+    Signed-off-by: Dmytro Linkin <dmitrolin@mellanox.com>
+    Reviewed-by: Jianbo Liu <jianbol@mellanox.com>
+    Reviewed-by: Roi Dayan <roid@mellanox.com>
+    Reviewed-by: Saeed Mahameed <saeedm@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 93501e3c8b28..fa3249964ee9 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -285,7 +285,6 @@ mlx5_eswitch_add_fwd_rule(struct mlx5_eswitch *esw,
+ 
+ 	mlx5_eswitch_set_rule_source_port(esw, spec, attr);
+ 
+-	spec->match_criteria_enable |= MLX5_MATCH_MISC_PARAMETERS;
+ 	if (attr->outer_match_level != MLX5_MATCH_NONE)
+ 		spec->match_criteria_enable |= MLX5_MATCH_OUTER_HEADERS;
+ 
+-- 
+2.13.6
+

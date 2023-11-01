@@ -1,0 +1,55 @@
+From 134f8606ebca3094b8e2f3994f1b2797ae867749 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:55:13 -0400
+Subject: [PATCH 197/312] [netdrv] net/mlx5e: Add missing release firmware call
+
+Message-id: <20200512105530.4207-108-ahleihel@redhat.com>
+Patchwork-id: 306978
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 107/124] net/mlx5e: Add missing release firmware call
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.7-rc2
+
+commit d19987ccf57501894fdd8fadc2e55e4a3dd57239
+Author: Eran Ben Elisha <eranbe@mellanox.com>
+Date:   Tue Mar 24 15:04:26 2020 +0200
+
+    net/mlx5e: Add missing release firmware call
+
+    Once driver finishes flashing the firmware image, it should release it.
+
+    Fixes: 9c8bca2637b8 ("mlx5: Move firmware flash implementation to devlink")
+    Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+    Reviewed-by: Aya Levin <ayal@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/devlink.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/devlink.c b/drivers/net/ethernet/mellanox/mlx5/core/devlink.c
+index 381925c90d94..d63ce3feb65c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/devlink.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/devlink.c
+@@ -23,7 +23,10 @@ static int mlx5_devlink_flash_update(struct devlink *devlink,
+ 	if (err)
+ 		return err;
+ 
+-	return mlx5_firmware_flash(dev, fw, extack);
++	err = mlx5_firmware_flash(dev, fw, extack);
++	release_firmware(fw);
++
++	return err;
+ }
+ 
+ static u8 mlx5_fw_ver_major(u32 version)
+-- 
+2.13.6
+

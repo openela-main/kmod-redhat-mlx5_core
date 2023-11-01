@@ -1,0 +1,73 @@
+From a5b2bc6cac5aa14e5003fb867391560f1cba7444 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Mon, 1 Jun 2020 15:40:55 -0400
+Subject: [PATCH 300/312] [netdrv] net: sched: expose HW stats types per action
+ used by drivers
+
+Message-id: <20200601154102.25980-33-ahleihel@redhat.com>
+Patchwork-id: 315737
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1842258 32/39] net: sched: expose HW stats types per action used by drivers
+Bugzilla: 1842258
+RH-Acked-by: Honggang Li <honli@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1842258
+Upstream: v5.7-rc1
+Conflicts:
+ - Add the tc_ct.c hunks that were dropped when this patch was backported
+   as part of CNB work.
+
+commit 93a129eb8c520b032e1823447b2e1badcc650666
+Author: Jiri Pirko <jiri@mellanox.com>
+Date:   Sat Mar 28 16:37:43 2020 +0100
+
+    net: sched: expose HW stats types per action used by drivers
+
+    It may be up to the driver (in case ANY HW stats is passed) to select
+    which type of HW stats he is going to use. Add an infrastructure to
+    expose this information to user.
+
+    $ tc filter add dev enp3s0np1 ingress proto ip handle 1 pref 1 flower dst_ip 192.168.1.1 action drop
+    $ tc -s filter show dev enp3s0np1 ingress
+    filter protocol ip pref 1 flower chain 0
+    filter protocol ip pref 1 flower chain 0 handle 0x1
+      eth_type ipv4
+      dst_ip 192.168.1.1
+      in_hw in_hw_count 2
+            action order 1: gact action drop
+             random type none pass val 0
+             index 1 ref 1 bind 1 installed 10 sec used 10 sec
+            Action statistics:
+            Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+            backlog 0b 0p requeues 0
+            used_hw_stats immediate     <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+    Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.c b/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.c
+index 5ad72232dce9..eb1adac0a79e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.c
+@@ -677,7 +677,8 @@ mlx5_tc_ct_block_flow_offload_stats(struct mlx5_ct_ft *ft,
+ 		return -ENOENT;
+ 
+ 	mlx5_fc_query_cached(entry->counter, &bytes, &packets, &lastuse);
+-	flow_stats_update(&f->stats, bytes, packets, lastuse);
++	flow_stats_update(&f->stats, bytes, packets, lastuse,
++			  FLOW_ACTION_HW_STATS_DELAYED);
+ 
+ 	return 0;
+ }
+-- 
+2.13.6
+

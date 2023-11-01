@@ -1,0 +1,44 @@
+From af84b7bad6e72a4f3f9647d5856b6f94277f35ba Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:55:29 -0400
+Subject: [PATCH 210/312] [netdrv] mlx5: Remove the unsupported mark from
+ ConnectX-6 Dx device
+
+Message-id: <20200512105530.4207-124-ahleihel@redhat.com>
+Patchwork-id: 306997
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 123/124] mlx5: Remove the unsupported mark from ConnectX-6 Dx device
+Bugzilla: 1789382 1782831
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Bugzilla: http://bugzilla.redhat.com/1782831
+Upstream: RHEL-only
+
+Now that ConnectX-6 Dx device is available and tested, we can remove the
+unsupported mark from this devices.
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/main.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index 314d6d95cf76..c835f029caf8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -736,8 +736,6 @@ static int mlx5_core_set_issi(struct mlx5_core_dev *dev)
+ 
+ /* PCI table of mlx5 devices that are tech preview in RHEL */
+ static const struct pci_device_id mlx5_core_hw_unsupp_pci_table[] = {
+-	{ PCI_VDEVICE(MELLANOX, 0x101d) },			/* ConnectX-6 Dx */
+-	{ PCI_VDEVICE(MELLANOX, 0x101e), MLX5_PCI_DEV_IS_VF},	/* ConnectX Family mlx5Gen Virtual Function */
+ 	{ PCI_VDEVICE(MELLANOX, 0x101f) },			/* ConnectX-6 LX */
+ 	{ PCI_VDEVICE(MELLANOX, 0x1021) },			/* ConnectX-7 */
+ 	{ PCI_VDEVICE(MELLANOX, 0xa2d6) },			/* BlueField-2 integrated ConnectX-6 Dx network controller */
+-- 
+2.13.6
+

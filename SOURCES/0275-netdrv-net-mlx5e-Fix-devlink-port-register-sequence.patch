@@ -1,0 +1,156 @@
+From eaef6191478050c3c5a4ef24955d741d1002261e Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Mon, 1 Jun 2020 15:40:27 -0400
+Subject: [PATCH 275/312] [netdrv] net/mlx5e: Fix devlink port register
+ sequence
+
+Message-id: <20200601154102.25980-5-ahleihel@redhat.com>
+Patchwork-id: 315708
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1842258 04/39] net/mlx5e: Fix devlink port register sequence
+Bugzilla: 1842258 1790226
+RH-Acked-by: Honggang Li <honli@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1790226
+Bugzilla: http://bugzilla.redhat.com/1842258
+Upstream: v5.7-rc1
+
+commit 31e87b39ba9d47cf31f5a91dd3cc9680f5987d12
+Author: Vladyslav Tarasiuk <vladyslavt@mellanox.com>
+Date:   Wed Mar 4 13:33:50 2020 +0200
+
+    net/mlx5e: Fix devlink port register sequence
+
+    If udevd is configured to rename interfaces according to persistent
+    naming rules and if a network interface has phys_port_name in sysfs,
+    its contents will be appended to the interface name.
+    However, register_netdev creates device in sysfs and if
+    devlink_port_register is called after that, there is a timeframe in
+    which udevd may read an empty phys_port_name value. The consequence is
+    that the interface will lose this suffix and its name will not be
+    really persistent.
+
+    The solution is to register the port before registering a netdev.
+
+    Fixes: c6acd629eec7 ("net/mlx5e: Add support for devlink-port in non-representors mode")
+    Signed-off-by: Vladyslav Tarasiuk <vladyslavt@mellanox.com>
+    Reviewed-by: Maxim Mikityanskiy <maximmi@mellanox.com>
+    Reviewed-by: Jiri Pirko <jiri@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/en/devlink.c   | 26 +++++++++-------------
+ .../net/ethernet/mellanox/mlx5/core/en/devlink.h   |  3 ++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 16 +++++++------
+ 3 files changed, 21 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/devlink.c b/drivers/net/ethernet/mellanox/mlx5/core/en/devlink.c
+index e38495e4aa42..f8b2de4b04be 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/devlink.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/devlink.c
+@@ -3,20 +3,14 @@
+ 
+ #include "en/devlink.h"
+ 
+-int mlx5e_devlink_port_register(struct net_device *netdev)
++int mlx5e_devlink_port_register(struct mlx5e_priv *priv)
+ {
+-	struct mlx5_core_dev *dev;
+-	struct mlx5e_priv *priv;
+-	struct devlink *devlink;
+-	int err;
++	struct devlink *devlink = priv_to_devlink(priv->mdev);
+ 
+-	priv = netdev_priv(netdev);
+-	dev = priv->mdev;
+-
+-	if (mlx5_core_is_pf(dev))
++	if (mlx5_core_is_pf(priv->mdev))
+ 		devlink_port_attrs_set(&priv->dl_port,
+ 				       DEVLINK_PORT_FLAVOUR_PHYSICAL,
+-				       PCI_FUNC(dev->pdev->devfn),
++				       PCI_FUNC(priv->mdev->pdev->devfn),
+ 				       false, 0,
+ 				       NULL, 0);
+ 	else
+@@ -24,12 +18,12 @@ int mlx5e_devlink_port_register(struct net_device *netdev)
+ 				       DEVLINK_PORT_FLAVOUR_VIRTUAL,
+ 				       0, false, 0, NULL, 0);
+ 
+-	devlink = priv_to_devlink(dev);
+-	err = devlink_port_register(devlink, &priv->dl_port, 1);
+-	if (err)
+-		return err;
+-	devlink_port_type_eth_set(&priv->dl_port, netdev);
+-	return 0;
++	return devlink_port_register(devlink, &priv->dl_port, 1);
++}
++
++void mlx5e_devlink_port_type_eth_set(struct mlx5e_priv *priv)
++{
++	devlink_port_type_eth_set(&priv->dl_port, priv->netdev);
+ }
+ 
+ void mlx5e_devlink_port_unregister(struct mlx5e_priv *priv)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/devlink.h b/drivers/net/ethernet/mellanox/mlx5/core/en/devlink.h
+index 3e5393a0901f..83123a801adc 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/devlink.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/devlink.h
+@@ -7,8 +7,9 @@
+ #include <net/devlink.h>
+ #include "en.h"
+ 
+-int mlx5e_devlink_port_register(struct net_device *dev);
++int mlx5e_devlink_port_register(struct mlx5e_priv *priv);
+ void mlx5e_devlink_port_unregister(struct mlx5e_priv *priv);
++void mlx5e_devlink_port_type_eth_set(struct mlx5e_priv *priv);
+ struct devlink_port *mlx5e_get_devlink_port(struct net_device *dev);
+ 
+ #endif
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 5e52f415ef35..7698167f6dab 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -5493,25 +5493,27 @@ static void *mlx5e_add(struct mlx5_core_dev *mdev)
+ 		goto err_destroy_netdev;
+ 	}
+ 
+-	err = register_netdev(netdev);
++	err = mlx5e_devlink_port_register(priv);
+ 	if (err) {
+-		mlx5_core_err(mdev, "register_netdev failed, %d\n", err);
++		mlx5_core_err(mdev, "mlx5e_devlink_port_register failed, %d\n", err);
+ 		goto err_detach;
+ 	}
+ 
+-	err = mlx5e_devlink_port_register(netdev);
++	err = register_netdev(netdev);
+ 	if (err) {
+-		mlx5_core_err(mdev, "mlx5e_devlink_phy_port_register failed, %d\n", err);
+-		goto err_unregister_netdev;
++		mlx5_core_err(mdev, "register_netdev failed, %d\n", err);
++		goto err_devlink_port_unregister;
+ 	}
+ 
++	mlx5e_devlink_port_type_eth_set(priv);
++
+ #ifdef CONFIG_MLX5_CORE_EN_DCB
+ 	mlx5e_dcbnl_init_app(priv);
+ #endif
+ 	return priv;
+ 
+-err_unregister_netdev:
+-	unregister_netdev(netdev);
++err_devlink_port_unregister:
++	mlx5e_devlink_port_unregister(priv);
+ err_detach:
+ 	mlx5e_detach(mdev, priv);
+ err_destroy_netdev:
+-- 
+2.13.6
+

@@ -1,0 +1,82 @@
+From 3b0c6baddf528e8895d3a42617df25f80825b150 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:53:40 -0400
+Subject: [PATCH 134/312] [include] net/mlx5: Add Virtio Emulation related
+ device capabilities
+
+Message-id: <20200512105530.4207-15-ahleihel@redhat.com>
+Patchwork-id: 306887
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 014/124] net/mlx5: Add Virtio Emulation related device capabilities
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.6-rc1
+
+commit 90fbca5952436e7817910b33eb4464ddd77a8964
+Author: Yishai Hadas <yishaih@mellanox.com>
+Date:   Thu Dec 12 13:09:24 2019 +0200
+
+    net/mlx5: Add Virtio Emulation related device capabilities
+
+    Add Virtio Emulation related fields to the device capabilities.
+
+    It includes a general bit to indicate whether Virtio Emulation is
+    supported and the capabilities structure itself.
+
+    Signed-off-by: Yishai Hadas <yishaih@mellanox.com>
+    Reviewed-by: Shahaf Shuler <shahafs@mellanox.com>
+    Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ include/linux/mlx5/mlx5_ifc.h | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 4c703796c233..1285f31b5f5c 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -87,6 +87,7 @@ enum {
+ enum {
+ 	MLX5_GENERAL_OBJ_TYPES_CAP_SW_ICM = (1ULL << MLX5_OBJ_TYPE_SW_ICM),
+ 	MLX5_GENERAL_OBJ_TYPES_CAP_GENEVE_TLV_OPT = (1ULL << 11),
++	MLX5_GENERAL_OBJ_TYPES_CAP_VIRTIO_NET_Q = (1ULL << 13),
+ };
+ 
+ enum {
+@@ -956,6 +957,19 @@ struct mlx5_ifc_device_event_cap_bits {
+ 	u8         user_unaffiliated_events[4][0x40];
+ };
+ 
++struct mlx5_ifc_device_virtio_emulation_cap_bits {
++	u8         reserved_at_0[0x20];
++
++	u8         reserved_at_20[0x13];
++	u8         log_doorbell_stride[0x5];
++	u8         reserved_at_38[0x3];
++	u8         log_doorbell_bar_size[0x5];
++
++	u8         doorbell_bar_offset[0x40];
++
++	u8         reserved_at_80[0x780];
++};
++
+ enum {
+ 	MLX5_ATOMIC_CAPS_ATOMIC_SIZE_QP_1_BYTE     = 0x0,
+ 	MLX5_ATOMIC_CAPS_ATOMIC_SIZE_QP_2_BYTES    = 0x2,
+@@ -2756,6 +2770,7 @@ union mlx5_ifc_hca_cap_union_bits {
+ 	struct mlx5_ifc_fpga_cap_bits fpga_cap;
+ 	struct mlx5_ifc_tls_cap_bits tls_cap;
+ 	struct mlx5_ifc_device_mem_cap_bits device_mem_cap;
++	struct mlx5_ifc_device_virtio_emulation_cap_bits virtio_emulation_cap;
+ 	u8         reserved_at_0[0x8000];
+ };
+ 
+-- 
+2.13.6
+

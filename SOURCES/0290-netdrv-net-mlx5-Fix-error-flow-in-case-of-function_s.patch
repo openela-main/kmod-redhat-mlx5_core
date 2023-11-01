@@ -1,0 +1,64 @@
+From ff053ba86c5373334906f06a0208695dc38a6006 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Mon, 1 Jun 2020 15:40:43 -0400
+Subject: [PATCH 290/312] [netdrv] net/mlx5: Fix error flow in case of
+ function_setup failure
+
+Message-id: <20200601154102.25980-21-ahleihel@redhat.com>
+Patchwork-id: 315725
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1842258 20/39] net/mlx5: Fix error flow in case of function_setup failure
+Bugzilla: 1842258
+RH-Acked-by: Honggang Li <honli@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1842258
+Upstream: v5.7-rc7
+
+commit 4f7400d5cbaef676e00cdffb0565bf731c6bb09e
+Author: Shay Drory <shayd@mellanox.com>
+Date:   Wed May 6 14:52:04 2020 +0300
+
+    net/mlx5: Fix error flow in case of function_setup failure
+
+    Currently, if an error occurred during mlx5_function_setup(), we
+    keep dev->state as DEVICE_STATE_UP.
+    Fixing it by adding a goto label.
+
+    Fixes: e161105e58da ("net/mlx5: Function setup/teardown procedures")
+    Signed-off-by: Shay Drory <shayd@mellanox.com>
+    Reviewed-by: Moshe Shemesh <moshe@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index fdc0c0f7da96..79e4bfeae70b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -1212,7 +1212,7 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, bool boot)
+ 
+ 	err = mlx5_function_setup(dev, boot);
+ 	if (err)
+-		goto out;
++		goto err_function;
+ 
+ 	if (boot) {
+ 		err = mlx5_init_once(dev);
+@@ -1250,6 +1250,7 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, bool boot)
+ 		mlx5_cleanup_once(dev);
+ function_teardown:
+ 	mlx5_function_teardown(dev, boot);
++err_function:
+ 	dev->state = MLX5_DEVICE_STATE_INTERNAL_ERROR;
+ 	mutex_unlock(&dev->intf_state_mutex);
+ 
+-- 
+2.13.6
+

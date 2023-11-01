@@ -1,0 +1,57 @@
+From 7ebf81988e7d25faf70f748a840ddba1d38c651b Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:49:28 -0400
+Subject: [PATCH 265/312] [netdrv] net/mlx5: E-switch, Annotate esw state_lock
+ mutex destroy
+
+Message-id: <20200519074934.6303-58-ahleihel@redhat.com>
+Patchwork-id: 310557
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 57/63] net/mlx5: E-switch, Annotate esw state_lock mutex destroy
+Bugzilla: 1835595 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1835595
+Bugzilla: http://bugzilla.redhat.com/1663246
+Upstream: v5.7-rc1
+
+commit d6c8022dfb06b27c96d6deca93ce6d762e842878
+Author: Parav Pandit <parav@mellanox.com>
+Date:   Tue Dec 17 22:51:24 2019 -0600
+
+    net/mlx5: E-switch, Annotate esw state_lock mutex destroy
+
+    Invoke mutex_destroy() to catch any esw state_lock errors.
+
+    Reviewed-by: Roi Dayan <roid@mellanox.com>
+    Reviewed-by: Bodong Wang <bodong@mellanox.com>
+    Signed-off-by: Parav Pandit <parav@mellanox.com>
+    Reviewed-by: Mark Bloch <markb@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 6ae084b0e612..901466fa1041 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -2198,6 +2198,7 @@ void mlx5_eswitch_cleanup(struct mlx5_eswitch *esw)
+ 	esw->dev->priv.eswitch = NULL;
+ 	destroy_workqueue(esw->work_queue);
+ 	esw_offloads_cleanup_reps(esw);
++	mutex_destroy(&esw->state_lock);
+ 	mutex_destroy(&esw->offloads.mod_hdr.lock);
+ 	mutex_destroy(&esw->offloads.encap_tbl_lock);
+ 	kfree(esw->vports);
+-- 
+2.13.6
+

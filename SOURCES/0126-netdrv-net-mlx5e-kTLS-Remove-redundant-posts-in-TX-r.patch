@@ -1,0 +1,56 @@
+From 6243ccbbf9514855d73dde9397cd1c256013279c Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:04:51 -0400
+Subject: [PATCH 126/312] [netdrv] net/mlx5e: kTLS, Remove redundant posts in
+ TX resync flow
+
+Message-id: <20200510150452.10307-87-ahleihel@redhat.com>
+Patchwork-id: 306710
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 86/87] net/mlx5e: kTLS, Remove redundant posts in TX resync flow
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5
+
+commit 1e92899791358dba94a9db7cc3b6004636b5a2f6
+Author: Tariq Toukan <tariqt@mellanox.com>
+Date:   Mon Jan 13 14:46:09 2020 +0200
+
+    net/mlx5e: kTLS, Remove redundant posts in TX resync flow
+
+    The call to tx_post_resync_params() is done earlier in the flow,
+    the post of the control WQEs is unnecessarily repeated. Remove it.
+
+    Fixes: 700ec4974240 ("net/mlx5e: kTLS, Fix missing SQ edge fill")
+    Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+    Signed-off-by: Boris Pismenny <borisp@mellanox.com>
+    Reviewed-by: Boris Pismenny <borisp@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c
+index 8dbb92176bd7..592e921aa167 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c
+@@ -383,8 +383,6 @@ mlx5e_ktls_tx_handle_ooo(struct mlx5e_ktls_offload_context_tx *priv_tx,
+ 	if (unlikely(contig_wqebbs_room < num_wqebbs))
+ 		mlx5e_fill_sq_frag_edge(sq, wq, pi, contig_wqebbs_room);
+ 
+-	tx_post_resync_params(sq, priv_tx, info.rcd_sn);
+-
+ 	for (; i < info.nr_frags; i++) {
+ 		unsigned int orig_fsz, frag_offset = 0, n = 0;
+ 		skb_frag_t *f = &info.frags[i];
+-- 
+2.13.6
+

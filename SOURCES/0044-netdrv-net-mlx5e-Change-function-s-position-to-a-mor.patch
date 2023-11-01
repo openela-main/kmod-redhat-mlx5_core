@@ -1,0 +1,91 @@
+From d4eb0855820857638058bada0a1189f24b06010b Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:52:16 -0400
+Subject: [PATCH 044/312] [netdrv] net/mlx5e: Change function's position to a
+ more fitting file
+
+Message-id: <20200510145245.10054-54-ahleihel@redhat.com>
+Patchwork-id: 306594
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 53/82] net/mlx5e: Change function's position to a more fitting file
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc1
+
+commit a49e1f31ae155d64355d0cd0e0afa5b2bc8544cd
+Author: Aya Levin <ayal@mellanox.com>
+Date:   Thu Aug 8 16:16:28 2019 +0300
+
+    net/mlx5e: Change function's position to a more fitting file
+
+    Move function which indicates whether tunnel inner flow table is
+    supported from en.h to en_fs.c. It fits better right after tunnel
+    protocol rules definitions.
+
+    Signed-off-by: Aya Levin <ayal@mellanox.com>
+    Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h    | 6 ------
+ drivers/net/ethernet/mellanox/mlx5/core/en/fs.h | 2 ++
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs.c | 6 ++++++
+ 3 files changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index ada39a3f83a9..35cf78134737 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -1054,12 +1054,6 @@ int mlx5e_modify_sq(struct mlx5_core_dev *mdev, u32 sqn,
+ void mlx5e_activate_txqsq(struct mlx5e_txqsq *sq);
+ void mlx5e_tx_disable_queue(struct netdev_queue *txq);
+ 
+-static inline bool mlx5e_tunnel_inner_ft_supported(struct mlx5_core_dev *mdev)
+-{
+-	return (MLX5_CAP_ETH(mdev, tunnel_stateless_gre) &&
+-		MLX5_CAP_FLOWTABLE_NIC_RX(mdev, ft_field_support.inner_ip_version));
+-}
+-
+ static inline bool mlx5_tx_swp_supported(struct mlx5_core_dev *mdev)
+ {
+ 	return MLX5_CAP_ETH(mdev, swp) &&
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/fs.h b/drivers/net/ethernet/mellanox/mlx5/core/en/fs.h
+index ca2161b42c7f..5acd982ff228 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/fs.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/fs.h
+@@ -98,6 +98,8 @@ enum mlx5e_tunnel_types {
+ 	MLX5E_NUM_TUNNEL_TT,
+ };
+ 
++bool mlx5e_tunnel_inner_ft_supported(struct mlx5_core_dev *mdev);
++
+ /* L3/L4 traffic type classifier */
+ struct mlx5e_ttc_table {
+ 	struct mlx5e_flow_table  ft;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
+index 76cc10e44080..a8340e4fb0b9 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
+@@ -749,6 +749,12 @@ static struct mlx5e_etype_proto ttc_tunnel_rules[] = {
+ 	},
+ };
+ 
++bool mlx5e_tunnel_inner_ft_supported(struct mlx5_core_dev *mdev)
++{
++	return (MLX5_CAP_ETH(mdev, tunnel_stateless_gre) &&
++		MLX5_CAP_FLOWTABLE_NIC_RX(mdev, ft_field_support.inner_ip_version));
++}
++
+ static u8 mlx5e_etype_to_ipv(u16 ethertype)
+ {
+ 	if (ethertype == ETH_P_IP)
+-- 
+2.13.6
+

@@ -1,0 +1,121 @@
+From a8f5854b513e24cc1c6b337aeeebaa868a09bfe7 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:55:04 -0400
+Subject: [PATCH 188/312] [netdrv] net/mlx5e: Don't allow forwarding between
+ uplink
+
+Message-id: <20200512105530.4207-99-ahleihel@redhat.com>
+Patchwork-id: 306970
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 098/124] net/mlx5e: Don't allow forwarding between uplink
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.7-rc1
+
+commit ffec97020f841fefa508db038bad58bc6def9431
+Author: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+Date:   Mon Feb 17 22:08:50 2020 +0800
+
+    net/mlx5e: Don't allow forwarding between uplink
+
+    We can install forwarding packets rule between uplink
+    in switchdev mode, as show below. But the hardware does
+    not do that as expected (mlnx_perf -i $PF1, we can't get
+    the counter of the PF1). By the way, if we add the uplink
+    PF0, PF1 to Open vSwitch and enable hw-offload, the rules
+    can be offloaded but not work fine too. This patch add a
+    check and if so return -EOPNOTSUPP.
+
+    $ tc filter add dev $PF0 protocol all parent ffff: prio 1 handle 1 \
+        flower skip_sw action mirred egress redirect dev $PF1
+
+    $ tc -d -s filter show dev $PF0 ingress
+        skip_sw
+        in_hw in_hw_count 1
+        action order 1: mirred (Egress Redirect to device enp130s0f1) stolen
+        ...
+        Sent hardware 408954 bytes 4173 pkt
+        ...
+
+    Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+    Reviewed-by: Roi Dayan <roid@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c |  5 +++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.h |  1 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c  | 17 +++++++++++++++++
+ 3 files changed, 23 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index 5c9b67b71456..02f1362a01ef 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -1371,6 +1371,11 @@ static const struct net_device_ops mlx5e_netdev_ops_uplink_rep = {
+ 	.ndo_set_features        = mlx5e_set_features,
+ };
+ 
++bool mlx5e_eswitch_uplink_rep(struct net_device *netdev)
++{
++	return netdev->netdev_ops == &mlx5e_netdev_ops_uplink_rep;
++}
++
+ bool mlx5e_eswitch_rep(struct net_device *netdev)
+ {
+ 	if (netdev->netdev_ops == &mlx5e_netdev_ops_rep ||
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.h b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.h
+index c8f3bbdc1ffb..4bc5d5cd071c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.h
+@@ -200,6 +200,7 @@ void mlx5e_rep_encap_entry_detach(struct mlx5e_priv *priv,
+ void mlx5e_rep_queue_neigh_stats_work(struct mlx5e_priv *priv);
+ 
+ bool mlx5e_eswitch_rep(struct net_device *netdev);
++bool mlx5e_eswitch_uplink_rep(struct net_device *netdev);
+ 
+ #else /* CONFIG_MLX5_ESWITCH */
+ static inline bool mlx5e_is_uplink_rep(struct mlx5e_priv *priv) { return false; }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index 2c89f1251354..6c37a9e7912e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -3384,6 +3384,7 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv,
+ 				struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
+ 				struct net_device *uplink_dev = mlx5_eswitch_uplink_get_proto_dev(esw, REP_ETH);
+ 				struct net_device *uplink_upper;
++				struct mlx5e_rep_priv *rep_priv;
+ 
+ 				if (is_duplicated_output_device(priv->netdev,
+ 								out_dev,
+@@ -3419,6 +3420,22 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv,
+ 						return err;
+ 				}
+ 
++				/* Don't allow forwarding between uplink.
++				 *
++				 * Input vport was stored esw_attr->in_rep.
++				 * In LAG case, *priv* is the private data of
++				 * uplink which may be not the input vport.
++				 */
++				rep_priv = mlx5e_rep_to_rep_priv(attr->in_rep);
++				if (mlx5e_eswitch_uplink_rep(rep_priv->netdev) &&
++				    mlx5e_eswitch_uplink_rep(out_dev)) {
++					NL_SET_ERR_MSG_MOD(extack,
++							   "devices are both uplink, can't offload forwarding");
++					pr_err("devices %s %s are both uplink, can't offload forwarding\n",
++					       priv->netdev->name, out_dev->name);
++					return -EOPNOTSUPP;
++				}
++
+ 				if (!mlx5e_is_valid_eswitch_fwd_dev(priv, out_dev)) {
+ 					NL_SET_ERR_MSG_MOD(extack,
+ 							   "devices are not on same switch HW, can't offload forwarding");
+-- 
+2.13.6
+

@@ -1,0 +1,77 @@
+From 05c740d36ff80368cce999cd1f694cfa5dd7ab4b Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:04:33 -0400
+Subject: [PATCH 109/312] [netdrv] net/mlx5: DR, Add HW bits and definitions
+ for Geneve flex parser
+
+Message-id: <20200510150452.10307-69-ahleihel@redhat.com>
+Patchwork-id: 306692
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 68/87] net/mlx5: DR, Add HW bits and definitions for Geneve flex parser
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5-rc1
+
+commit a18fab48dbacbb7ff104a13e987778b7995bec07
+Author: Yevgeny Kliteynik <kliteyn@mellanox.com>
+Date:   Mon Oct 28 16:58:53 2019 +0200
+
+    net/mlx5: DR, Add HW bits and definitions for Geneve flex parser
+
+    Add definition for flex parser tunneling header for Geneve.
+
+    Signed-off-by: Yevgeny Kliteynik <kliteyn@mellanox.com>
+    Reviewed-by: Alex Vesker <valex@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/steering/mlx5_ifc_dr.h  | 13 +++++++++++++
+ include/linux/mlx5/mlx5_ifc.h                               |  1 +
+ 2 files changed, 14 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/steering/mlx5_ifc_dr.h b/drivers/net/ethernet/mellanox/mlx5/core/steering/mlx5_ifc_dr.h
+index 6d78b027fe56..1722f4668269 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/steering/mlx5_ifc_dr.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/steering/mlx5_ifc_dr.h
+@@ -559,6 +559,19 @@ struct mlx5_ifc_ste_flex_parser_tnl_vxlan_gpe_bits {
+ 	u8         reserved_at_40[0x40];
+ };
+ 
++struct mlx5_ifc_ste_flex_parser_tnl_geneve_bits {
++	u8         reserved_at_0[0x2];
++	u8         geneve_opt_len[0x6];
++	u8         geneve_oam[0x1];
++	u8         reserved_at_9[0x7];
++	u8         geneve_protocol_type[0x10];
++
++	u8         geneve_vni[0x18];
++	u8         reserved_at_38[0x8];
++
++	u8         reserved_at_40[0x40];
++};
++
+ struct mlx5_ifc_ste_general_purpose_bits {
+ 	u8         general_purpose_lookup_field[0x20];
+ 
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index a77ca587c3cc..4c703796c233 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -1113,6 +1113,7 @@ enum {
+ };
+ 
+ enum {
++	MLX5_FLEX_PARSER_GENEVE_ENABLED		= 1 << 3,
+ 	MLX5_FLEX_PARSER_VXLAN_GPE_ENABLED	= 1 << 7,
+ 	MLX5_FLEX_PARSER_ICMP_V4_ENABLED	= 1 << 8,
+ 	MLX5_FLEX_PARSER_ICMP_V6_ENABLED	= 1 << 9,
+-- 
+2.13.6
+

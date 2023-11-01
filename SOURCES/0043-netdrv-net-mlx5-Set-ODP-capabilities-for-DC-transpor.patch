@@ -1,0 +1,73 @@
+From d8bf00ef12e6537c0c1c10982ce05a681526a0f5 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:52:13 -0400
+Subject: [PATCH 043/312] [netdrv] net/mlx5: Set ODP capabilities for DC
+ transport to max
+
+Message-id: <20200510145245.10054-51-ahleihel@redhat.com>
+Patchwork-id: 306592
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 50/82] net/mlx5: Set ODP capabilities for DC transport to max
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc1
+
+commit 00679b631eddaa0aa0ceba719fcb1f60c65da5a3
+Author: Michael Guralnik <michaelgur@mellanox.com>
+Date:   Mon Aug 19 15:08:13 2019 +0300
+
+    net/mlx5: Set ODP capabilities for DC transport to max
+
+    In mlx5_core initialization, query max ODP capabilities for DC transport
+    from FW and set as current capabilities.
+
+    Signed-off-by: Michael Guralnik <michaelgur@mellanox.com>
+    Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/main.c | 6 ++++++
+ include/linux/mlx5/mlx5_ifc.h                  | 4 +++-
+ 2 files changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index 568d973725b6..490bd80c586a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -495,6 +495,12 @@ static int handle_hca_cap_odp(struct mlx5_core_dev *dev)
+ 	ODP_CAP_SET_MAX(dev, xrc_odp_caps.write);
+ 	ODP_CAP_SET_MAX(dev, xrc_odp_caps.read);
+ 	ODP_CAP_SET_MAX(dev, xrc_odp_caps.atomic);
++	ODP_CAP_SET_MAX(dev, dc_odp_caps.srq_receive);
++	ODP_CAP_SET_MAX(dev, dc_odp_caps.send);
++	ODP_CAP_SET_MAX(dev, dc_odp_caps.receive);
++	ODP_CAP_SET_MAX(dev, dc_odp_caps.write);
++	ODP_CAP_SET_MAX(dev, dc_odp_caps.read);
++	ODP_CAP_SET_MAX(dev, dc_odp_caps.atomic);
+ 
+ 	if (do_set)
+ 		err = set_caps(dev, set_ctx, set_sz,
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 77c354384ce5..caa0bcd9dd0f 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -1019,7 +1019,9 @@ struct mlx5_ifc_odp_cap_bits {
+ 
+ 	struct mlx5_ifc_odp_per_transport_service_cap_bits xrc_odp_caps;
+ 
+-	u8         reserved_at_100[0x700];
++	struct mlx5_ifc_odp_per_transport_service_cap_bits dc_odp_caps;
++
++	u8         reserved_at_120[0x6E0];
+ };
+ 
+ struct mlx5_ifc_calc_op {
+-- 
+2.13.6
+

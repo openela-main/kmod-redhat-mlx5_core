@@ -1,0 +1,87 @@
+From 34060a4ab8c1af0bac3e6a229edce9e92ddeeb43 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:51:58 -0400
+Subject: [PATCH 034/312] [netdrv] net/mlx5: Improve functions documentation
+
+Message-id: <20200510145245.10054-36-ahleihel@redhat.com>
+Patchwork-id: 306576
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 35/82] net/mlx5: Improve functions documentation
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc1
+
+commit 866ff8f22380a49d665ed72521704844bba6de08
+Author: Saeed Mahameed <saeedm@mellanox.com>
+Date:   Thu Aug 15 19:46:09 2019 +0000
+
+    net/mlx5: Improve functions documentation
+
+    Fix documentation of mlx5_eq_enable/disable to cleanup compiler warnings.
+
+    drivers/net/ethernet/mellanox/mlx5/core//eq.c:334:
+    warning: Function parameter or member 'dev' not described in 'mlx5_eq_enable'
+    warning: Function parameter or member 'eq' not described in 'mlx5_eq_enable'
+    warning: Function parameter or member 'nb' not described in 'mlx5_eq_enable'
+
+    drivers/net/ethernet/mellanox/mlx5/core//eq.c:355:
+    warning: Function parameter or member 'dev' not described in 'mlx5_eq_disable'
+    warning: Function parameter or member 'eq' not described in 'mlx5_eq_disable'
+    warning: Function parameter or member 'nb' not described in 'mlx5_eq_disable'
+
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c | 22 +++++++++++++---------
+ 1 file changed, 13 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
+index 09d4c64b6e73..580c71cb9dfa 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
+@@ -324,10 +324,13 @@ create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq,
+ 
+ /**
+  * mlx5_eq_enable - Enable EQ for receiving EQEs
+- * @dev - Device which owns the eq
+- * @eq - EQ to enable
+- * @nb - notifier call block
+- * mlx5_eq_enable - must be called after EQ is created in device.
++ * @dev : Device which owns the eq
++ * @eq  : EQ to enable
++ * @nb  : Notifier call block
++ *
++ * Must be called after EQ is created in device.
++ *
++ * @return: 0 if no error
+  */
+ int mlx5_eq_enable(struct mlx5_core_dev *dev, struct mlx5_eq *eq,
+ 		   struct notifier_block *nb)
+@@ -344,11 +347,12 @@ int mlx5_eq_enable(struct mlx5_core_dev *dev, struct mlx5_eq *eq,
+ EXPORT_SYMBOL(mlx5_eq_enable);
+ 
+ /**
+- * mlx5_eq_disable - Enable EQ for receiving EQEs
+- * @dev - Device which owns the eq
+- * @eq - EQ to disable
+- * @nb - notifier call block
+- * mlx5_eq_disable - must be called before EQ is destroyed.
++ * mlx5_eq_disable - Disable EQ for receiving EQEs
++ * @dev : Device which owns the eq
++ * @eq  : EQ to disable
++ * @nb  : Notifier call block
++ *
++ * Must be called before EQ is destroyed.
+  */
+ void mlx5_eq_disable(struct mlx5_core_dev *dev, struct mlx5_eq *eq,
+ 		     struct notifier_block *nb)
+-- 
+2.13.6
+

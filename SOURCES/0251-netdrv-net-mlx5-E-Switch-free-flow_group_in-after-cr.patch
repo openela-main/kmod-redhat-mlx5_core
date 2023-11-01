@@ -1,0 +1,56 @@
+From ab1a12fa3425da6bc263127011ca7c09c2da19e7 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:49:13 -0400
+Subject: [PATCH 251/312] [netdrv] net/mlx5: E-Switch, free flow_group_in after
+ creating the restore table
+
+Message-id: <20200519074934.6303-43-ahleihel@redhat.com>
+Patchwork-id: 310540
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 42/63] net/mlx5: E-Switch, free flow_group_in after creating the restore table
+Bugzilla: 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Upstream: v5.7-rc1
+
+commit c8508713c71c21f5a16469dcc75ffb4381fbfeb4
+Author: Roi Dayan <roid@mellanox.com>
+Date:   Thu Mar 19 17:48:18 2020 +0200
+
+    net/mlx5: E-Switch, free flow_group_in after creating the restore table
+
+    We allocate a temporary memory but forget to free it.
+
+    Fixes: 11b717d61526 ("net/mlx5: E-Switch, Get reg_c0 value on CQE")
+    Signed-off-by: Roi Dayan <roid@mellanox.com>
+    Reviewed-by: Paul Blakey <paulb@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index f6fd7df0e864..02340328f11b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -1514,6 +1514,8 @@ static int esw_create_restore_table(struct mlx5_eswitch *esw)
+ 	esw->offloads.restore_group = g;
+ 	esw->offloads.restore_copy_hdr_id = mod_hdr;
+ 
++	kvfree(flow_group_in);
++
+ 	return 0;
+ 
+ err_mod_hdr:
+-- 
+2.13.6
+

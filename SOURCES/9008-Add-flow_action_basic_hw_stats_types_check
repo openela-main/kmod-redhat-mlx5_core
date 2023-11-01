@@ -1,0 +1,37 @@
+Index: src/drivers/net/ethernet/mellanox/mlx5/core/backport_compat.h
+===================================================================
+--- src.orig/drivers/net/ethernet/mellanox/mlx5/core/backport_compat.h	2020-07-15 10:38:36.891950970 +0200
++++ src/drivers/net/ethernet/mellanox/mlx5/core/backport_compat.h	2020-07-15 10:38:44.900954789 +0200
+@@ -1,6 +1,7 @@
+ #ifndef MLX5_BACKPORT_COMPAT_H
+ #define MLX5_BACKPORT_COMPAT_H
+ 
++#include <net/flow_offload.h>
+ #include <net/xdp_sock.h>
+ 
+ 
+@@ -20,4 +21,12 @@
+ 
+ #define TC_SETUP_FT 14
+ 
++
++static inline bool
++flow_action_basic_hw_stats_types_check(const struct flow_action *action,
++                                       struct netlink_ext_ack *extack)
++{
++	return true;
++}
++
+ #endif
+Index: src/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+===================================================================
+--- src.orig/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c	2020-07-15 10:38:30.214947786 +0200
++++ src/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c	2020-07-15 10:38:36.905950977 +0200
+@@ -60,6 +60,7 @@
+ #include "lib/devcom.h"
+ #include "lib/geneve.h"
+ #include "diag/en_tc_tracepoint.h"
++#include "backport_compat.h"
+ 
+ #define MLX5_MH_ACT_SZ MLX5_UN_SZ_BYTES(set_action_in_add_action_in_auto)
+ 

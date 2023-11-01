@@ -1,0 +1,59 @@
+From 28b45723942ac89a12419ce9c85a6bdb297d01a4 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Mon, 1 Jun 2020 15:40:35 -0400
+Subject: [PATCH 282/312] [netdrv] net/mlx5e: kTLS, Destroy key object after
+ destroying the TIS
+
+Message-id: <20200601154102.25980-13-ahleihel@redhat.com>
+Patchwork-id: 315717
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1842258 12/39] net/mlx5e: kTLS, Destroy key object after destroying the TIS
+Bugzilla: 1842258
+RH-Acked-by: Honggang Li <honli@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1842258
+Upstream: v5.7-rc7
+
+commit 16736e11f43b80a38f98f6add54fab3b8c297df3
+Author: Tariq Toukan <tariqt@mellanox.com>
+Date:   Mon Apr 27 16:56:59 2020 +0300
+
+    net/mlx5e: kTLS, Destroy key object after destroying the TIS
+
+    The TLS TIS object contains the dek/key ID.
+    By destroying the key first, the TIS would contain an invalid
+    non-existing key ID.
+    Reverse the destroy order, this also acheives the desired assymetry
+    between the destroy and the create flows.
+
+    Fixes: d2ead1f360e8 ("net/mlx5e: Add kTLS TX HW offload support")
+    Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+    Reviewed-by: Boris Pismenny <borisp@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls.c b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls.c
+index 46725cd743a3..7d1985fa0d4f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls.c
+@@ -69,8 +69,8 @@ static void mlx5e_ktls_del(struct net_device *netdev,
+ 	struct mlx5e_ktls_offload_context_tx *tx_priv =
+ 		mlx5e_get_ktls_tx_priv_ctx(tls_ctx);
+ 
+-	mlx5_ktls_destroy_key(priv->mdev, tx_priv->key_id);
+ 	mlx5e_destroy_tis(priv->mdev, tx_priv->tisn);
++	mlx5_ktls_destroy_key(priv->mdev, tx_priv->key_id);
+ 	kvfree(tx_priv);
+ }
+ 
+-- 
+2.13.6
+

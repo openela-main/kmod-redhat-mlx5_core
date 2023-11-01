@@ -1,0 +1,59 @@
+From c8e8db53ff86aa1a728b4e39136722e54acd86d0 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:30 -0400
+Subject: [PATCH 161/312] [netdrv] net/mlx5: Clear LAG notifier pointer after
+ unregister
+
+Message-id: <20200512105530.4207-65-ahleihel@redhat.com>
+Patchwork-id: 306936
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 064/124] net/mlx5: Clear LAG notifier pointer after unregister
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.6
+
+commit 0b136454741b2f6cb18d55e355d396db9248b2ab
+Author: Eli Cohen <eli@mellanox.com>
+Date:   Wed Feb 19 09:03:28 2020 +0200
+
+    net/mlx5: Clear LAG notifier pointer after unregister
+
+    After returning from unregister_netdevice_notifier_dev_net(), set the
+    notifier_call field to NULL so successive call to mlx5_lag_add() will
+    function as expected.
+
+    Fixes: 7907f23adc18 ("net/mlx5: Implement RoCE LAG feature")
+    Signed-off-by: Eli Cohen <eli@mellanox.com>
+    Reviewed-by: Vlad Buslov <vladbu@mellanox.com>
+    Reviewed-by: Raed Salem <raeds@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/lag.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lag.c b/drivers/net/ethernet/mellanox/mlx5/core/lag.c
+index fc0d9583475d..79b1bfd2b592 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/lag.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/lag.c
+@@ -618,8 +618,10 @@ void mlx5_lag_remove(struct mlx5_core_dev *dev)
+ 			break;
+ 
+ 	if (i == MLX5_MAX_PORTS) {
+-		if (ldev->nb.notifier_call)
++		if (ldev->nb.notifier_call) {
+ 			unregister_netdevice_notifier(&ldev->nb);
++			ldev->nb.notifier_call = NULL;
++		}
+ 		mlx5_lag_mp_cleanup(ldev);
+ 		cancel_delayed_work_sync(&ldev->bond_work);
+ 		mlx5_lag_dev_free(ldev);
+-- 
+2.13.6
+

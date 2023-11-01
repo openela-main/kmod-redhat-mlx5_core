@@ -1,0 +1,110 @@
+From a7e18b503e4432e57b868bc0a9a359f2c0ab2d58 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:48:40 -0400
+Subject: [PATCH 219/312] [netdrv] net/mlx5e: Use NL_SET_ERR_MSG_MOD() extack
+ for errors
+
+Message-id: <20200519074934.6303-10-ahleihel@redhat.com>
+Patchwork-id: 310512
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 09/63] net/mlx5e: Use NL_SET_ERR_MSG_MOD() extack for errors
+Bugzilla: 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Upstream: v5.7-rc1
+
+commit 61644c3de8a30245c1d4aae7f164175a0498ca76
+Author: Roi Dayan <roid@mellanox.com>
+Date:   Tue Feb 18 15:30:58 2020 +0200
+
+    net/mlx5e: Use NL_SET_ERR_MSG_MOD() extack for errors
+
+    This to be consistent and adds the module name to the error message.
+
+    Signed-off-by: Roi Dayan <roid@mellanox.com>
+    Reviewed-by: Eli Cohen <eli@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 21 ++++++++++++++-------
+ 1 file changed, 14 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index c5b6081a55d6..456d6e05388c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -1173,7 +1173,8 @@ mlx5e_tc_add_fdb_flow(struct mlx5e_priv *priv,
+ 	int out_index;
+ 
+ 	if (!mlx5_esw_chains_prios_supported(esw) && attr->prio != 1) {
+-		NL_SET_ERR_MSG(extack, "E-switch priorities unsupported, upgrade FW");
++		NL_SET_ERR_MSG_MOD(extack,
++				   "E-switch priorities unsupported, upgrade FW");
+ 		return -EOPNOTSUPP;
+ 	}
+ 
+@@ -1184,13 +1185,15 @@ mlx5e_tc_add_fdb_flow(struct mlx5e_priv *priv,
+ 	 */
+ 	max_chain = mlx5_esw_chains_get_chain_range(esw);
+ 	if (!mlx5e_is_ft_flow(flow) && attr->chain > max_chain) {
+-		NL_SET_ERR_MSG(extack, "Requested chain is out of supported range");
++		NL_SET_ERR_MSG_MOD(extack,
++				   "Requested chain is out of supported range");
+ 		return -EOPNOTSUPP;
+ 	}
+ 
+ 	max_prio = mlx5_esw_chains_get_prio_range(esw);
+ 	if (attr->prio > max_prio) {
+-		NL_SET_ERR_MSG(extack, "Requested priority is out of supported range");
++		NL_SET_ERR_MSG_MOD(extack,
++				   "Requested priority is out of supported range");
+ 		return -EOPNOTSUPP;
+ 	}
+ 
+@@ -3546,11 +3549,13 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv,
+ 			}
+ 			if (!mlx5_esw_chains_backwards_supported(esw) &&
+ 			    dest_chain <= attr->chain) {
+-				NL_SET_ERR_MSG(extack, "Goto earlier chain isn't supported");
++				NL_SET_ERR_MSG_MOD(extack,
++						   "Goto earlier chain isn't supported");
+ 				return -EOPNOTSUPP;
+ 			}
+ 			if (dest_chain > max_chain) {
+-				NL_SET_ERR_MSG(extack, "Requested destination chain is out of supported range");
++				NL_SET_ERR_MSG_MOD(extack,
++						   "Requested destination chain is out of supported range");
+ 				return -EOPNOTSUPP;
+ 			}
+ 			action |= MLX5_FLOW_CONTEXT_ACTION_COUNT;
+@@ -3600,7 +3605,8 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv,
+ 
+ 	if (attr->dest_chain) {
+ 		if (attr->action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) {
+-			NL_SET_ERR_MSG(extack, "Mirroring goto chain rules isn't supported");
++			NL_SET_ERR_MSG_MOD(extack,
++					   "Mirroring goto chain rules isn't supported");
+ 			return -EOPNOTSUPP;
+ 		}
+ 		attr->action |= MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
+@@ -3608,7 +3614,8 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv,
+ 
+ 	if (!(attr->action &
+ 	      (MLX5_FLOW_CONTEXT_ACTION_FWD_DEST | MLX5_FLOW_CONTEXT_ACTION_DROP))) {
+-		NL_SET_ERR_MSG(extack, "Rule must have at least one forward/drop action");
++		NL_SET_ERR_MSG_MOD(extack,
++				   "Rule must have at least one forward/drop action");
+ 		return -EOPNOTSUPP;
+ 	}
+ 
+-- 
+2.13.6
+

@@ -1,0 +1,65 @@
+From 877b42f26b6e9ec1f6377f186b0312d34bcd6aac Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:52:25 -0400
+Subject: [PATCH 052/312] [netdrv] net/mlx5e: kTLS, Remove unused function
+ parameter
+
+Message-id: <20200510145245.10054-63-ahleihel@redhat.com>
+Patchwork-id: 306603
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 62/82] net/mlx5e: kTLS, Remove unused function parameter
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc1
+
+commit fa9e01c89539ec1f4efde0adc1a69a527f5ecb1e
+Author: Tariq Toukan <tariqt@mellanox.com>
+Date:   Mon Sep 2 12:04:35 2019 +0300
+
+    net/mlx5e: kTLS, Remove unused function parameter
+
+    SKB parameter is no longer used in tx_post_resync_dump(),
+    remove it.
+
+    Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+    Reviewed-by: Eran Ben Elisha <eranbe@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c
+index e5222d17df35..d195366461c9 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c
+@@ -256,8 +256,7 @@ struct mlx5e_dump_wqe {
+ };
+ 
+ static int
+-tx_post_resync_dump(struct mlx5e_txqsq *sq, struct sk_buff *skb,
+-		    skb_frag_t *frag, u32 tisn, bool first)
++tx_post_resync_dump(struct mlx5e_txqsq *sq, skb_frag_t *frag, u32 tisn, bool first)
+ {
+ 	struct mlx5_wqe_ctrl_seg *cseg;
+ 	struct mlx5_wqe_data_seg *dseg;
+@@ -371,8 +370,7 @@ mlx5e_ktls_tx_handle_ooo(struct mlx5e_ktls_offload_context_tx *priv_tx,
+ 	tx_post_resync_params(sq, priv_tx, info.rcd_sn);
+ 
+ 	for (i = 0; i < info.nr_frags; i++)
+-		if (tx_post_resync_dump(sq, skb, info.frags[i],
+-					priv_tx->tisn, !i))
++		if (tx_post_resync_dump(sq, info.frags[i], priv_tx->tisn, !i))
+ 			goto err_out;
+ 
+ 	/* If no dump WQE was sent, we need to have a fence NOP WQE before the
+-- 
+2.13.6
+

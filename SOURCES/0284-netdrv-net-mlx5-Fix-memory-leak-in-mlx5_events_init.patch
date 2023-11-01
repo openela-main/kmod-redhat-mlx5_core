@@ -1,0 +1,59 @@
+From 45f622a9a7b5f51f041e8871ebc9ab21bff2dfaa Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Mon, 1 Jun 2020 15:40:37 -0400
+Subject: [PATCH 284/312] [netdrv] net/mlx5: Fix memory leak in
+ mlx5_events_init
+
+Message-id: <20200601154102.25980-15-ahleihel@redhat.com>
+Patchwork-id: 315718
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1842258 14/39] net/mlx5: Fix memory leak in mlx5_events_init
+Bugzilla: 1842258
+RH-Acked-by: Honggang Li <honli@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1842258
+Upstream: v5.7-rc7
+
+commit df14ad1eccb04a4a28c90389214dbacab085b244
+Author: Moshe Shemesh <moshe@mellanox.com>
+Date:   Wed Apr 29 23:56:58 2020 +0300
+
+    net/mlx5: Fix memory leak in mlx5_events_init
+
+    Fix memory leak in mlx5_events_init(), in case
+    create_single_thread_workqueue() fails, events
+    struct should be freed.
+
+    Fixes: 5d3c537f9070 ("net/mlx5: Handle event of power detection in the PCIE slot")
+    Signed-off-by: Moshe Shemesh <moshe@mellanox.com>
+    Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/events.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/events.c b/drivers/net/ethernet/mellanox/mlx5/core/events.c
+index 8bcf3426b9c6..3ce17c3d7a00 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/events.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/events.c
+@@ -346,8 +346,10 @@ int mlx5_events_init(struct mlx5_core_dev *dev)
+ 	events->dev = dev;
+ 	dev->priv.events = events;
+ 	events->wq = create_singlethread_workqueue("mlx5_events");
+-	if (!events->wq)
++	if (!events->wq) {
++		kfree(events);
+ 		return -ENOMEM;
++	}
+ 	INIT_WORK(&events->pcie_core_work, mlx5_pcie_event);
+ 
+ 	return 0;
+-- 
+2.13.6
+

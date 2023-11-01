@@ -1,0 +1,71 @@
+From 4fedc08dc4ec7fcbcc3311a2fb10af94b10bbb55 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Mon, 1 Jun 2020 15:40:59 -0400
+Subject: [PATCH 304/312] [netdrv] net/mlx5e: replace EINVAL in
+ mlx5e_flower_parse_meta()
+
+Message-id: <20200601154102.25980-37-ahleihel@redhat.com>
+Patchwork-id: 315740
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1842258 36/39] net/mlx5e: replace EINVAL in mlx5e_flower_parse_meta()
+Bugzilla: 1842258
+RH-Acked-by: Honggang Li <honli@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1842258
+Upstream: v5.7
+
+commit a683012a8e77675a1947cc8f11f97cdc1d5bb769
+Author: Pablo Neira Ayuso <pablo@netfilter.org>
+Date:   Sun Apr 19 14:12:35 2020 +0200
+
+    net/mlx5e: replace EINVAL in mlx5e_flower_parse_meta()
+
+    The drivers reports EINVAL to userspace through netlink on invalid meta
+    match. This is confusing since EINVAL is usually reserved for malformed
+    netlink messages. Replace it by more meaningful codes.
+
+    Fixes: 6d65bc64e232 ("net/mlx5e: Add mlx5e_flower_parse_meta support")
+    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index 22b67563412d..2df19165a78a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -2078,7 +2078,7 @@ static int mlx5e_flower_parse_meta(struct net_device *filter_dev,
+ 	flow_rule_match_meta(rule, &match);
+ 	if (match.mask->ingress_ifindex != 0xFFFFFFFF) {
+ 		NL_SET_ERR_MSG_MOD(extack, "Unsupported ingress ifindex mask");
+-		return -EINVAL;
++		return -EOPNOTSUPP;
+ 	}
+ 
+ 	ingress_dev = __dev_get_by_index(dev_net(filter_dev),
+@@ -2086,13 +2086,13 @@ static int mlx5e_flower_parse_meta(struct net_device *filter_dev,
+ 	if (!ingress_dev) {
+ 		NL_SET_ERR_MSG_MOD(extack,
+ 				   "Can't find the ingress port to match on");
+-		return -EINVAL;
++		return -ENOENT;
+ 	}
+ 
+ 	if (ingress_dev != filter_dev) {
+ 		NL_SET_ERR_MSG_MOD(extack,
+ 				   "Can't match on the ingress filter port");
+-		return -EINVAL;
++		return -EOPNOTSUPP;
+ 	}
+ 
+ 	return 0;
+-- 
+2.13.6
+

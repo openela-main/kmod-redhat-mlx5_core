@@ -1,0 +1,79 @@
+From 76873cb29b40ccf7c938297b7f007f609dfea0a6 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:41 -0400
+Subject: [PATCH 169/312] [netdrv] net/mlx5e: Encapsulate updating netdev
+ queues into a function
+
+Message-id: <20200512105530.4207-76-ahleihel@redhat.com>
+Patchwork-id: 306947
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 075/124] net/mlx5e: Encapsulate updating netdev queues into a function
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.7-rc1
+
+commit c2c95271f9f39ea9b34db2301b3b6c5105cdb447
+Author: Maxim Mikityanskiy <maximmi@mellanox.com>
+Date:   Tue Sep 3 17:38:43 2019 +0300
+
+    net/mlx5e: Encapsulate updating netdev queues into a function
+
+    As a preparation for one of the following commits, create a function to
+    encapsulate the code that notifies the kernel about the new amount of
+    RX and TX queues. The code will be called multiple times in the next
+    commit.
+
+    Signed-off-by: Maxim Mikityanskiy <maximmi@mellanox.com>
+    Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 19 ++++++++++++-------
+ 1 file changed, 12 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index be3b5f911358..eed6e024675e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2887,6 +2887,17 @@ static void mlx5e_netdev_set_tcs(struct net_device *netdev)
+ 		netdev_set_tc_queue(netdev, tc, nch, 0);
+ }
+ 
++static void mlx5e_update_netdev_queues(struct mlx5e_priv *priv)
++{
++	int num_txqs = priv->channels.num * priv->channels.params.num_tc;
++	int num_rxqs = priv->channels.num * priv->profile->rq_groups;
++	struct net_device *netdev = priv->netdev;
++
++	mlx5e_netdev_set_tcs(netdev);
++	netif_set_real_num_tx_queues(netdev, num_txqs);
++	netif_set_real_num_rx_queues(netdev, num_rxqs);
++}
++
+ static void mlx5e_build_txq_maps(struct mlx5e_priv *priv)
+ {
+ 	int i, ch;
+@@ -2908,13 +2919,7 @@ static void mlx5e_build_txq_maps(struct mlx5e_priv *priv)
+ 
+ void mlx5e_activate_priv_channels(struct mlx5e_priv *priv)
+ {
+-	int num_txqs = priv->channels.num * priv->channels.params.num_tc;
+-	int num_rxqs = priv->channels.num * priv->profile->rq_groups;
+-	struct net_device *netdev = priv->netdev;
+-
+-	mlx5e_netdev_set_tcs(netdev);
+-	netif_set_real_num_tx_queues(netdev, num_txqs);
+-	netif_set_real_num_rx_queues(netdev, num_rxqs);
++	mlx5e_update_netdev_queues(priv);
+ 
+ 	mlx5e_build_txq_maps(priv);
+ 	mlx5e_activate_channels(&priv->channels);
+-- 
+2.13.6
+

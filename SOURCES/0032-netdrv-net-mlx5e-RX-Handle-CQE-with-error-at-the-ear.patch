@@ -1,0 +1,181 @@
+From f0e7d22454ff73e1c1ecb37f5ff11a8a5eedbf74 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:51:56 -0400
+Subject: [PATCH 032/312] [netdrv] net/mlx5e: RX, Handle CQE with error at the
+ earliest stage
+
+Message-id: <20200510145245.10054-34-ahleihel@redhat.com>
+Patchwork-id: 306574
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 33/82] net/mlx5e: RX, Handle CQE with error at the earliest stage
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc1
+
+commit 0a35ab3e138296cfe192628520e4d5f3ff23e730
+Author: Saeed Mahameed <saeedm@mellanox.com>
+Date:   Fri Jun 14 15:21:15 2019 -0700
+
+    net/mlx5e: RX, Handle CQE with error at the earliest stage
+
+    Just to be aligned with the MPWQE handlers, handle RX WQE with error
+    for legacy RQs in the top RX handlers, just before calling skb_from_cqe().
+
+    CQE error handling will now be called at the same stage regardless of
+    the RQ type or netdev mode NIC, Representor, IPoIB, etc ..
+
+    This will be useful for down stream patch to improve error CQE
+    handling.
+
+    Signed-off-by: Aya Levin <ayal@mellanox.com>
+    Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+    Acked-by: Jiri Pirko <jiri@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/en/health.h    |  2 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    | 49 ++++++++++++----------
+ 2 files changed, 30 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/health.h b/drivers/net/ethernet/mellanox/mlx5/core/en/health.h
+index b4a2d9be17d6..52e9ca37cf46 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/health.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/health.h
+@@ -6,6 +6,8 @@
+ 
+ #include "en.h"
+ 
++#define MLX5E_RX_ERR_CQE(cqe) (get_cqe_opcode(cqe) != MLX5_CQE_RESP_SEND)
++
+ int mlx5e_reporter_tx_create(struct mlx5e_priv *priv);
+ void mlx5e_reporter_tx_destroy(struct mlx5e_priv *priv);
+ void mlx5e_reporter_tx_err_cqe(struct mlx5e_txqsq *sq);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index ce4d357188df..1c3da221ee69 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -49,6 +49,7 @@
+ #include "lib/clock.h"
+ #include "en/xdp.h"
+ #include "en/xsk/rx.h"
++#include "en/health.h"
+ 
+ static inline bool mlx5e_rx_hw_stamp(struct hwtstamp_config *config)
+ {
+@@ -1070,11 +1071,6 @@ mlx5e_skb_from_cqe_linear(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe,
+ 	prefetchw(va); /* xdp_frame data area */
+ 	prefetch(data);
+ 
+-	if (unlikely(get_cqe_opcode(cqe) != MLX5_CQE_RESP_SEND)) {
+-		rq->stats->wqe_err++;
+-		return NULL;
+-	}
+-
+ 	rcu_read_lock();
+ 	consumed = mlx5e_xdp_handle(rq, di, va, &rx_headroom, &cqe_bcnt, false);
+ 	rcu_read_unlock();
+@@ -1102,11 +1098,6 @@ mlx5e_skb_from_cqe_nonlinear(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe,
+ 	u16 byte_cnt     = cqe_bcnt - headlen;
+ 	struct sk_buff *skb;
+ 
+-	if (unlikely(get_cqe_opcode(cqe) != MLX5_CQE_RESP_SEND)) {
+-		rq->stats->wqe_err++;
+-		return NULL;
+-	}
+-
+ 	/* XDP is not supported in this configuration, as incoming packets
+ 	 * might spread among multiple pages.
+ 	 */
+@@ -1152,6 +1143,11 @@ void mlx5e_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
+ 	wi       = get_frag(rq, ci);
+ 	cqe_bcnt = be32_to_cpu(cqe->byte_cnt);
+ 
++	if (unlikely(MLX5E_RX_ERR_CQE(cqe))) {
++		rq->stats->wqe_err++;
++		goto free_wqe;
++	}
++
+ 	skb = INDIRECT_CALL_2(rq->wqe.skb_from_cqe,
+ 			      mlx5e_skb_from_cqe_linear,
+ 			      mlx5e_skb_from_cqe_nonlinear,
+@@ -1193,6 +1189,11 @@ void mlx5e_handle_rx_cqe_rep(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
+ 	wi       = get_frag(rq, ci);
+ 	cqe_bcnt = be32_to_cpu(cqe->byte_cnt);
+ 
++	if (unlikely(MLX5E_RX_ERR_CQE(cqe))) {
++		rq->stats->wqe_err++;
++		goto free_wqe;
++	}
++
+ 	skb = rq->wqe.skb_from_cqe(rq, cqe, wi, cqe_bcnt);
+ 	if (!skb) {
+ 		/* probably for XDP */
+@@ -1327,7 +1328,7 @@ void mlx5e_handle_rx_cqe_mpwrq(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
+ 
+ 	wi->consumed_strides += cstrides;
+ 
+-	if (unlikely(get_cqe_opcode(cqe) != MLX5_CQE_RESP_SEND)) {
++	if (unlikely(MLX5E_RX_ERR_CQE(cqe))) {
+ 		rq->stats->wqe_err++;
+ 		goto mpwrq_cqe_out;
+ 	}
+@@ -1506,6 +1507,11 @@ void mlx5i_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
+ 	wi       = get_frag(rq, ci);
+ 	cqe_bcnt = be32_to_cpu(cqe->byte_cnt);
+ 
++	if (unlikely(MLX5E_RX_ERR_CQE(cqe))) {
++		rq->stats->wqe_err++;
++		goto wq_free_wqe;
++	}
++
+ 	skb = INDIRECT_CALL_2(rq->wqe.skb_from_cqe,
+ 			      mlx5e_skb_from_cqe_linear,
+ 			      mlx5e_skb_from_cqe_nonlinear,
+@@ -1541,26 +1547,27 @@ void mlx5e_ipsec_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
+ 	wi       = get_frag(rq, ci);
+ 	cqe_bcnt = be32_to_cpu(cqe->byte_cnt);
+ 
++	if (unlikely(MLX5E_RX_ERR_CQE(cqe))) {
++		rq->stats->wqe_err++;
++		goto wq_free_wqe;
++	}
++
+ 	skb = INDIRECT_CALL_2(rq->wqe.skb_from_cqe,
+ 			      mlx5e_skb_from_cqe_linear,
+ 			      mlx5e_skb_from_cqe_nonlinear,
+ 			      rq, cqe, wi, cqe_bcnt);
+-	if (unlikely(!skb)) {
+-		/* a DROP, save the page-reuse checks */
+-		mlx5e_free_rx_wqe(rq, wi, true);
+-		goto wq_cyc_pop;
+-	}
++	if (unlikely(!skb)) /* a DROP, save the page-reuse checks */
++		goto wq_free_wqe;
++
+ 	skb = mlx5e_ipsec_handle_rx_skb(rq->netdev, skb, &cqe_bcnt);
+-	if (unlikely(!skb)) {
+-		mlx5e_free_rx_wqe(rq, wi, true);
+-		goto wq_cyc_pop;
+-	}
++	if (unlikely(!skb))
++		goto wq_free_wqe;
+ 
+ 	mlx5e_complete_rx_cqe(rq, cqe, cqe_bcnt, skb);
+ 	napi_gro_receive(rq->cq.napi, skb);
+ 
++wq_free_wqe:
+ 	mlx5e_free_rx_wqe(rq, wi, true);
+-wq_cyc_pop:
+ 	mlx5_wq_cyc_pop(wq);
+ }
+ 
+-- 
+2.13.6
+

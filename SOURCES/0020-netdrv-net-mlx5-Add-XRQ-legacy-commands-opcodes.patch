@@ -1,0 +1,75 @@
+From b1e3c3ee5f0ae27994321ff5513aba666bcc5813 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:51:41 -0400
+Subject: [PATCH 020/312] [netdrv] net/mlx5: Add XRQ legacy commands opcodes
+
+Message-id: <20200510145245.10054-19-ahleihel@redhat.com>
+Patchwork-id: 306558
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 18/82] net/mlx5: Add XRQ legacy commands opcodes
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc1
+
+commit b1635ee6120cbeb3de6ab270432b2a2b839c9c56
+Author: Yishai Hadas <yishaih@mellanox.com>
+Date:   Thu Aug 8 11:43:56 2019 +0300
+
+    net/mlx5: Add XRQ legacy commands opcodes
+
+    Add XRQ legacy commands opcodes, will be used via the DEVX interface.
+
+    Signed-off-by: Yishai Hadas <yishaih@mellanox.com>
+    Reviewed-by: Saeed Mahameed <saeedm@mellanox.com>
+    Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 4 ++++
+ include/linux/mlx5/mlx5_ifc.h                 | 2 ++
+ 2 files changed, 6 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index 4b7ca04ae25e..8242f96ab931 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -446,6 +446,8 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
+ 	case MLX5_CMD_OP_CREATE_UMEM:
+ 	case MLX5_CMD_OP_DESTROY_UMEM:
+ 	case MLX5_CMD_OP_ALLOC_MEMIC:
++	case MLX5_CMD_OP_MODIFY_XRQ:
++	case MLX5_CMD_OP_RELEASE_XRQ_ERROR:
+ 		*status = MLX5_DRIVER_STATUS_ABORTED;
+ 		*synd = MLX5_DRIVER_SYND;
+ 		return -EIO;
+@@ -637,6 +639,8 @@ const char *mlx5_command_str(int command)
+ 	MLX5_COMMAND_STR_CASE(DESTROY_UCTX);
+ 	MLX5_COMMAND_STR_CASE(CREATE_UMEM);
+ 	MLX5_COMMAND_STR_CASE(DESTROY_UMEM);
++	MLX5_COMMAND_STR_CASE(RELEASE_XRQ_ERROR);
++	MLX5_COMMAND_STR_CASE(MODIFY_XRQ);
+ 	default: return "unknown command opcode";
+ 	}
+ }
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 7e6149895d87..03cb1cf0e285 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -172,6 +172,8 @@ enum {
+ 	MLX5_CMD_OP_QUERY_XRQ_DC_PARAMS_ENTRY     = 0x725,
+ 	MLX5_CMD_OP_SET_XRQ_DC_PARAMS_ENTRY       = 0x726,
+ 	MLX5_CMD_OP_QUERY_XRQ_ERROR_PARAMS        = 0x727,
++	MLX5_CMD_OP_RELEASE_XRQ_ERROR             = 0x729,
++	MLX5_CMD_OP_MODIFY_XRQ                    = 0x72a,
+ 	MLX5_CMD_OP_QUERY_ESW_FUNCTIONS           = 0x740,
+ 	MLX5_CMD_OP_QUERY_VPORT_STATE             = 0x750,
+ 	MLX5_CMD_OP_MODIFY_VPORT_STATE            = 0x751,
+-- 
+2.13.6
+

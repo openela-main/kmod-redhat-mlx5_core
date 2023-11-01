@@ -1,0 +1,83 @@
+From 3277bd11a6f6e94fef4fa83f1d7e4da1d3f66a8a Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:49:14 -0400
+Subject: [PATCH 252/312] [netdrv] net/mlx5: E-Switch, Enable restore table
+ only if reg_c1 is supported
+
+Message-id: <20200519074934.6303-44-ahleihel@redhat.com>
+Patchwork-id: 310545
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 43/63] net/mlx5: E-Switch, Enable restore table only if reg_c1 is supported
+Bugzilla: 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Upstream: v5.7-rc1
+
+commit 60acc105cbc23c525ddb6fed595cac4796c0040b
+Author: Paul Blakey <paulb@mellanox.com>
+Date:   Wed Mar 18 10:55:12 2020 +0200
+
+    net/mlx5: E-Switch, Enable restore table only if reg_c1 is supported
+
+    Reg c0/c1 matching, rewrite of regs c0/c1, and copy header of regs c1,B
+    is needed for the restore table to function, might not be supported by
+    firmware, and creation of the restore table or the copy header will
+    fail.
+
+    Check reg_c1 loopback support, as firmware which supports this,
+    should have all of the above.
+
+    Fixes: 11b717d61526 ("net/mlx5: E-Switch, Get reg_c0 value on CQE")
+    Signed-off-by: Paul Blakey <paulb@mellanox.com>
+    Reviewed-by: Roi Dayan <roid@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 02340328f11b..0c49033a3e73 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -1061,6 +1061,9 @@ esw_add_restore_rule(struct mlx5_eswitch *esw, u32 tag)
+ 	struct mlx5_flow_spec *spec;
+ 	void *misc;
+ 
++	if (!mlx5_eswitch_reg_c1_loopback_supported(esw))
++		return ERR_PTR(-EOPNOTSUPP);
++
+ 	spec = kzalloc(sizeof(*spec), GFP_KERNEL);
+ 	if (!spec)
+ 		return ERR_PTR(-ENOMEM);
+@@ -1434,6 +1437,9 @@ static void esw_destroy_restore_table(struct mlx5_eswitch *esw)
+ {
+ 	struct mlx5_esw_offload *offloads = &esw->offloads;
+ 
++	if (!mlx5_eswitch_reg_c1_loopback_supported(esw))
++		return;
++
+ 	mlx5_modify_header_dealloc(esw->dev, offloads->restore_copy_hdr_id);
+ 	mlx5_destroy_flow_group(offloads->restore_group);
+ 	mlx5_destroy_flow_table(offloads->ft_offloads_restore);
+@@ -1453,6 +1459,9 @@ static int esw_create_restore_table(struct mlx5_eswitch *esw)
+ 	u32 *flow_group_in;
+ 	int err = 0;
+ 
++	if (!mlx5_eswitch_reg_c1_loopback_supported(esw))
++		return 0;
++
+ 	ns = mlx5_get_flow_namespace(dev, MLX5_FLOW_NAMESPACE_OFFLOADS);
+ 	if (!ns) {
+ 		esw_warn(esw->dev, "Failed to get offloads flow namespace\n");
+-- 
+2.13.6
+

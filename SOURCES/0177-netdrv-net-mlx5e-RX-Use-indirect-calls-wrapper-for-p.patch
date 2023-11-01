@@ -1,0 +1,76 @@
+From a1259ce446814d9e74865a3c346f7bb2a8ecb469 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:49 -0400
+Subject: [PATCH 177/312] [netdrv] net/mlx5e: RX, Use indirect calls wrapper
+ for posting descriptors
+
+Message-id: <20200512105530.4207-84-ahleihel@redhat.com>
+Patchwork-id: 306955
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 083/124] net/mlx5e: RX, Use indirect calls wrapper for posting descriptors
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.7-rc1
+
+commit 2c8f80b3e318d0c434d1a6d38e38b1db83db0b95
+Author: Tariq Toukan <tariqt@mellanox.com>
+Date:   Mon Jan 27 13:28:42 2020 +0200
+
+    net/mlx5e: RX, Use indirect calls wrapper for posting descriptors
+
+    We can avoid an indirect call per NAPI cycle wrapping the RX descriptors
+    posting call with the appropriate helper.
+
+    Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+    Reviewed-by: Maxim Mikityanskiy <maximmi@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+index a2daa3dfe15a..5dcdd18143e6 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+@@ -31,6 +31,7 @@
+  */
+ 
+ #include <linux/irq.h>
++#include <linux/indirect_call_wrapper.h>
+ #include "en.h"
+ #include "en/xdp.h"
+ #include "en/xsk/tx.h"
+@@ -87,7 +88,10 @@ static bool mlx5e_napi_xsk_post(struct mlx5e_xdpsq *xsksq, struct mlx5e_rq *xskr
+ 	bool busy_xsk = false;
+ 
+ 	busy_xsk |= mlx5e_xsk_tx(xsksq, MLX5E_TX_XSK_POLL_BUDGET);
+-	busy_xsk |= xskrq->post_wqes(xskrq);
++	busy_xsk |= INDIRECT_CALL_2(xskrq->post_wqes,
++				    mlx5e_post_rx_mpwqes,
++				    mlx5e_post_rx_wqes,
++				    xskrq);
+ 
+ 	return busy_xsk;
+ }
+@@ -129,7 +133,10 @@ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
+ 
+ 	mlx5e_poll_ico_cq(&c->icosq.cq);
+ 
+-	busy |= rq->post_wqes(rq);
++	busy |= INDIRECT_CALL_2(rq->post_wqes,
++				mlx5e_post_rx_mpwqes,
++				mlx5e_post_rx_wqes,
++				rq);
+ 	if (xsk_open) {
+ 		mlx5e_poll_ico_cq(&c->xskicosq.cq);
+ 		busy |= mlx5e_poll_xdpsq_cq(&xsksq->cq);
+-- 
+2.13.6
+

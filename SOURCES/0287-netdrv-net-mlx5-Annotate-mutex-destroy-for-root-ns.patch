@@ -1,0 +1,58 @@
+From 35c46ad4062e1cffb1bc2df6e44b4cc75000e119 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Mon, 1 Jun 2020 15:40:40 -0400
+Subject: [PATCH 287/312] [netdrv] net/mlx5: Annotate mutex destroy for root ns
+
+Message-id: <20200601154102.25980-18-ahleihel@redhat.com>
+Patchwork-id: 315722
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1842258 17/39] net/mlx5: Annotate mutex destroy for root ns
+Bugzilla: 1842258 1840408
+RH-Acked-by: Honggang Li <honli@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1842258
+Bugzilla: http://bugzilla.redhat.com/1840408
+Upstream: v5.7-rc7
+
+commit 9ca415399dae133b00273a4283ef31d003a6818d
+Author: Roi Dayan <roid@mellanox.com>
+Date:   Thu May 14 23:44:38 2020 +0300
+
+    net/mlx5: Annotate mutex destroy for root ns
+
+    Invoke mutex_destroy() to catch any errors.
+
+    Fixes: 2cc43b494a6c ("net/mlx5_core: Managing root flow table")
+    Signed-off-by: Roi Dayan <roid@mellanox.com>
+    Reviewed-by: Mark Bloch <markb@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index 6343d5df787d..cbf8126242fc 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -2358,6 +2358,12 @@ static int init_root_tree(struct mlx5_flow_steering *steering,
+ 
+ static void del_sw_root_ns(struct fs_node *node)
+ {
++	struct mlx5_flow_root_namespace *root_ns;
++	struct mlx5_flow_namespace *ns;
++
++	fs_get_obj(ns, node);
++	root_ns = container_of(ns, struct mlx5_flow_root_namespace, ns);
++	mutex_destroy(&root_ns->chain_lock);
+ 	kfree(node);
+ }
+ 
+-- 
+2.13.6
+

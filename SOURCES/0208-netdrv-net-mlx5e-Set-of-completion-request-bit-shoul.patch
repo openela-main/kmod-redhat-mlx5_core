@@ -1,0 +1,58 @@
+From 736ea388a8658ad5e46c95416c687e66edd66bbc Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:55:25 -0400
+Subject: [PATCH 208/312] [netdrv] net/mlx5e: Set of completion request bit
+ should not clear other adjacent bits
+
+Message-id: <20200512105530.4207-120-ahleihel@redhat.com>
+Patchwork-id: 306992
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 119/124] net/mlx5e: Set of completion request bit should not clear other adjacent bits
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: net-next/master
+
+commit 82fe2996419830b0bb2c7e1f2fed2d3a8a1a65cd
+Author: Tariq Toukan <tariqt@mellanox.com>
+Date:   Tue Feb 18 12:27:25 2020 +0200
+
+    net/mlx5e: Set of completion request bit should not clear other adjacent bits
+
+    In notify HW (ring doorbell) flow, we set the bit to request a completion
+    on the TX descriptor.
+    When doing so, we should not unset other bits in the same byte.
+    Currently, this does not fix a real issue, as we still don't have a flow
+    where both MLX5_WQE_CTRL_CQ_UPDATE and any adjacent bit are set together.
+
+    Fixes: 542578c67936 ("net/mlx5e: Move helper functions to a new txrx datapath header")
+    Fixes: 864b2d715300 ("net/mlx5e: Generalize tx helper functions for different SQ types")
+    Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+    Reviewed-by: Aya Levin <ayal@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en/txrx.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/txrx.h b/drivers/net/ethernet/mellanox/mlx5/core/en/txrx.h
+index f07b1399744e..9f6967d76053 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/txrx.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/txrx.h
+@@ -102,7 +102,7 @@ static inline void
+ mlx5e_notify_hw(struct mlx5_wq_cyc *wq, u16 pc, void __iomem *uar_map,
+ 		struct mlx5_wqe_ctrl_seg *ctrl)
+ {
+-	ctrl->fm_ce_se = MLX5_WQE_CTRL_CQ_UPDATE;
++	ctrl->fm_ce_se |= MLX5_WQE_CTRL_CQ_UPDATE;
+ 	/* ensure wqe is visible to device before updating doorbell record */
+ 	dma_wmb();
+ 
+-- 
+2.13.6
+

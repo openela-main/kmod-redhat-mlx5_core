@@ -1,0 +1,57 @@
+From b11609d6b8e59125faa68ca14e005ab09b8cebde Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:14 -0400
+Subject: [PATCH 151/312] [netdrv] net/mlx5: IPsec, fix memory leak at
+ mlx5_fpga_ipsec_delete_sa_ctx
+
+Message-id: <20200512105530.4207-49-ahleihel@redhat.com>
+Patchwork-id: 306920
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 048/124] net/mlx5: IPsec, fix memory leak at mlx5_fpga_ipsec_delete_sa_ctx
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.6-rc1
+
+commit 08db2cf577487f5123aebcc2f913e0b8a2c14b43
+Author: Raed Salem <raeds@mellanox.com>
+Date:   Wed Oct 23 16:41:21 2019 +0300
+
+    net/mlx5: IPsec, fix memory leak at mlx5_fpga_ipsec_delete_sa_ctx
+
+    SA context is allocated at mlx5_fpga_ipsec_create_sa_ctx,
+    however the counterpart mlx5_fpga_ipsec_delete_sa_ctx function
+    nullifies sa_ctx pointer without freeing the memory allocated,
+    hence the memory leak.
+
+    Fix by free SA context when the SA is released.
+
+    Fixes: d6c4f0298cec ("net/mlx5: Refactor accel IPSec code")
+    Signed-off-by: Raed Salem <raeds@mellanox.com>
+    Reviewed-by: Boris Pismenny <borisp@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/fpga/ipsec.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/ipsec.c b/drivers/net/ethernet/mellanox/mlx5/core/fpga/ipsec.c
+index 4ed4d4d8e073..4c61d25d2e88 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/ipsec.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/ipsec.c
+@@ -850,6 +850,7 @@ void mlx5_fpga_ipsec_delete_sa_ctx(void *context)
+ 	mutex_lock(&fpga_xfrm->lock);
+ 	if (!--fpga_xfrm->num_rules) {
+ 		mlx5_fpga_ipsec_release_sa_ctx(fpga_xfrm->sa_ctx);
++		kfree(fpga_xfrm->sa_ctx);
+ 		fpga_xfrm->sa_ctx = NULL;
+ 	}
+ 	mutex_unlock(&fpga_xfrm->lock);
+-- 
+2.13.6
+

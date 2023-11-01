@@ -1,0 +1,88 @@
+From 5fc5946d699899ae403c7bb0fa6ff621d8d5b968 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Mon, 1 Jun 2020 15:40:42 -0400
+Subject: [PATCH 289/312] [netdrv] net/mlx5e: CT: Correctly get flow rule
+
+Message-id: <20200601154102.25980-20-ahleihel@redhat.com>
+Patchwork-id: 315723
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1842258 19/39] net/mlx5e: CT: Correctly get flow rule
+Bugzilla: 1842258 1840408
+RH-Acked-by: Honggang Li <honli@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1842258
+Bugzilla: http://bugzilla.redhat.com/1840408
+Upstream: v5.7-rc7
+
+commit d37bd5e81ed0d58f0ebe2e01658c26722e0c033e
+Author: Roi Dayan <roid@mellanox.com>
+Date:   Mon May 18 20:21:11 2020 +0300
+
+    net/mlx5e: CT: Correctly get flow rule
+
+    The correct way is to us the flow_cls_offload_flow_rule() wrapper
+    instead of f->rule directly.
+
+    Fixes: 4c3844d9e97e ("net/mlx5e: CT: Introduce connection tracking")
+    Signed-off-by: Roi Dayan <roid@mellanox.com>
+    Reviewed-by: Oz Shlomo <ozsh@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.c | 5 +++--
+ drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.h | 4 +++-
+ 2 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.c b/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.c
+index 8f94a4dde2bf..5ad72232dce9 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.c
+@@ -713,6 +713,7 @@ mlx5_tc_ct_parse_match(struct mlx5e_priv *priv,
+ 		       struct netlink_ext_ack *extack)
+ {
+ 	struct mlx5_tc_ct_priv *ct_priv = mlx5_tc_ct_get_ct_priv(priv);
++	struct flow_rule *rule = flow_cls_offload_flow_rule(f);
+ 	struct flow_dissector_key_ct *mask, *key;
+ 	bool trk, est, untrk, unest, new;
+ 	u32 ctstate = 0, ctstate_mask = 0;
+@@ -720,7 +721,7 @@ mlx5_tc_ct_parse_match(struct mlx5e_priv *priv,
+ 	u16 ct_state, ct_state_mask;
+ 	struct flow_match_ct match;
+ 
+-	if (!flow_rule_match_key(f->rule, FLOW_DISSECTOR_KEY_CT))
++	if (!flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_CT))
+ 		return 0;
+ 
+ 	if (!ct_priv) {
+@@ -729,7 +730,7 @@ mlx5_tc_ct_parse_match(struct mlx5e_priv *priv,
+ 		return -EOPNOTSUPP;
+ 	}
+ 
+-	flow_rule_match_ct(f->rule, &match);
++	flow_rule_match_ct(rule, &match);
+ 
+ 	key = match.key;
+ 	mask = match.mask;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.h b/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.h
+index 091d305b633e..626f6c04882e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/tc_ct.h
+@@ -130,7 +130,9 @@ mlx5_tc_ct_parse_match(struct mlx5e_priv *priv,
+ 		       struct flow_cls_offload *f,
+ 		       struct netlink_ext_ack *extack)
+ {
+-	if (!flow_rule_match_key(f->rule, FLOW_DISSECTOR_KEY_CT))
++	struct flow_rule *rule = flow_cls_offload_flow_rule(f);
++
++	if (!flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_CT))
+ 		return 0;
+ 
+ 	NL_SET_ERR_MSG_MOD(extack, "mlx5 tc ct offload isn't enabled.");
+-- 
+2.13.6
+

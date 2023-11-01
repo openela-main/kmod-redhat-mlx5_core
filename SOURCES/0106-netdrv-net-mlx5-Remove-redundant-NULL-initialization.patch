@@ -1,0 +1,93 @@
+From 74070ba1fa2d9560c642c8f985236aa62b65c946 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:04:27 -0400
+Subject: [PATCH 106/312] [netdrv] net/mlx5: Remove redundant NULL
+ initializations
+
+Message-id: <20200510150452.10307-63-ahleihel@redhat.com>
+Patchwork-id: 306684
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 62/87] net/mlx5: Remove redundant NULL initializations
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5-rc1
+Conflicts:
+ - drivers/net/ethernet/mellanox/mlx5/core/en/tc_tun.c
+   Fix may be used uninitialized warning in function mlx5e_tc_tun_create_header_ipv6.
+   This fix was taken from the following upstream merge commit:
+   95e6ba513316 ("Merge git://git.kernel.org/pub/scm/linux/kernel/git/netdev/net")
+
+commit e6014afd1c5717d556778ec1307cf7ab27ba5a2d
+Author: Eli Cohen <eli@mellanox.com>
+Date:   Wed Oct 30 16:48:15 2019 +0200
+
+    net/mlx5: Remove redundant NULL initializations
+
+    Neighbour initializations to NULL are not necessary as the pointers are
+    not used if an error is returned, and if success returned, pointers are
+    initialized.
+
+    Signed-off-by: Eli Cohen <eli@mellanox.com>
+    Reviewed-by: Vlad Buslov <vladbu@mellanox.com>
+    Reviewed-by: Roi Dayan <roid@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en/tc_tun.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/tc_tun.c b/drivers/net/ethernet/mellanox/mlx5/core/en/tc_tun.c
+index c2a4b6710f74..92559a758d07 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/tc_tun.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/tc_tun.c
+@@ -77,8 +77,8 @@ static int mlx5e_route_lookup_ipv4(struct mlx5e_priv *priv,
+ 				   struct neighbour **out_n,
+ 				   u8 *out_ttl)
+ {
++	struct neighbour *n;
+ 	struct rtable *rt;
+-	struct neighbour *n = NULL;
+ 
+ #if IS_ENABLED(CONFIG_INET)
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+@@ -138,8 +138,8 @@ static int mlx5e_route_lookup_ipv6(struct mlx5e_priv *priv,
+ 				   struct neighbour **out_n,
+ 				   u8 *out_ttl)
+ {
+-	struct neighbour *n = NULL;
+ 	struct dst_entry *dst;
++	struct neighbour *n;
+ 
+ #if IS_ENABLED(CONFIG_INET) && IS_ENABLED(CONFIG_IPV6)
+ 	int ret;
+@@ -212,8 +212,8 @@ int mlx5e_tc_tun_create_header_ipv4(struct mlx5e_priv *priv,
+ 	int max_encap_size = MLX5_CAP_ESW(priv->mdev, max_encap_header_size);
+ 	const struct ip_tunnel_key *tun_key = &e->tun_info->key;
+ 	struct net_device *out_dev, *route_dev;
+-	struct neighbour *n = NULL;
+ 	struct flowi4 fl4 = {};
++	struct neighbour *n;
+ 	int ipv4_encap_size;
+ 	char *encap_header;
+ 	u8 nud_state, ttl;
+@@ -331,9 +331,9 @@ int mlx5e_tc_tun_create_header_ipv6(struct mlx5e_priv *priv,
+ 	int max_encap_size = MLX5_CAP_ESW(priv->mdev, max_encap_header_size);
+ 	const struct ip_tunnel_key *tun_key = &e->tun_info->key;
+ 	struct net_device *out_dev, *route_dev;
+-	struct neighbour *n = NULL;
+ 	struct flowi6 fl6 = {};
+ 	struct ipv6hdr *ip6h;
++	struct neighbour *n = NULL;
+ 	int ipv6_encap_size;
+ 	char *encap_header;
+ 	u8 nud_state, ttl;
+-- 
+2.13.6
+

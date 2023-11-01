@@ -1,0 +1,52 @@
+From 0ab966999fca01c04be997507ba0aa3ac8e507c5 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:51 -0400
+Subject: [PATCH 179/312] [netdrv] net/mlx5: sparse: warning: incorrect type in
+ assignment
+
+Message-id: <20200512105530.4207-86-ahleihel@redhat.com>
+Patchwork-id: 306957
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 085/124] net/mlx5: sparse: warning: incorrect type in assignment
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.7-rc1
+
+commit 5edc4c7275ee05a8e76199ddd6c494840c8707aa
+Author: Saeed Mahameed <saeedm@mellanox.com>
+Date:   Wed Jan 22 15:05:21 2020 -0800
+
+    net/mlx5: sparse: warning: incorrect type in assignment
+
+    drivers/net/ethernet/mellanox/mlx5/core/diag/fw_tracer.c:191:13:
+    sparse: warning: incorrect type in assignment (different base types)
+
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+    Reviewed-by: Moshe Shemesh <moshe@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/diag/fw_tracer.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/diag/fw_tracer.c b/drivers/net/ethernet/mellanox/mlx5/core/diag/fw_tracer.c
+index 94d7b69a95c7..c9c9b479bda5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/diag/fw_tracer.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/diag/fw_tracer.c
+@@ -188,7 +188,7 @@ static int mlx5_fw_tracer_create_mkey(struct mlx5_fw_tracer *tracer)
+ 
+ 	MLX5_SET(create_mkey_in, in, translations_octword_actual_size,
+ 		 DIV_ROUND_UP(TRACER_BUFFER_PAGE_NUM, 2));
+-	mtt = (u64 *)MLX5_ADDR_OF(create_mkey_in, in, klm_pas_mtt);
++	mtt = (__be64 *)MLX5_ADDR_OF(create_mkey_in, in, klm_pas_mtt);
+ 	for (i = 0 ; i < TRACER_BUFFER_PAGE_NUM ; i++)
+ 		mtt[i] = cpu_to_be64(tracer->buff.dma + i * PAGE_SIZE);
+ 
+-- 
+2.13.6
+
