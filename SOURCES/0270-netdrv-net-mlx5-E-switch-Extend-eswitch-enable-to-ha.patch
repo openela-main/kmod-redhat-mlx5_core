@@ -1,0 +1,239 @@
+From c8627df5d03e52683da824e64b4330343da7948b Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:49:33 -0400
+Subject: [PATCH 270/312] [netdrv] net/mlx5: E-switch, Extend eswitch enable to
+ handle num_vfs change
+
+Message-id: <20200519074934.6303-63-ahleihel@redhat.com>
+Patchwork-id: 310564
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 62/63] net/mlx5: E-switch, Extend eswitch enable to handle num_vfs change
+Bugzilla: 1835595 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1835595
+Bugzilla: http://bugzilla.redhat.com/1663246
+Upstream: v5.7-rc1
+
+commit ebf77bb83f635377ad7946b73490b18ecf50dc29
+Author: Parav Pandit <parav@mellanox.com>
+Date:   Wed Dec 18 04:58:58 2019 -0600
+
+    net/mlx5: E-switch, Extend eswitch enable to handle num_vfs change
+
+    Subsequent patch protects eswitch mode changes across sriov and devlink
+    interfaces. It is desirable for eswitch to provide thread safe eswitch
+    enable and disable APIs.
+    Hence, extend eswitch enable API to optionally update num_vfs when
+    requested.
+
+    In subsequent patch, eswitch num_vfs are updated after all the eswitch
+    users eswitch drops its reference count.
+
+    Reviewed-by: Roi Dayan <roid@mellanox.com>
+    Reviewed-by: Bodong Wang <bodong@mellanox.com>
+    Reviewed-by: Mark Bloch <markb@mellanox.com>
+    Signed-off-by: Parav Pandit <parav@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  | 63 +++++++++++++++-------
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  | 10 ++--
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 13 +++--
+ drivers/net/ethernet/mellanox/mlx5/core/sriov.c    |  4 +-
+ 4 files changed, 58 insertions(+), 32 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 901466fa1041..19b887ad9392 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -2026,7 +2026,48 @@ static void mlx5_eswitch_get_devlink_param(struct mlx5_eswitch *esw)
+ 	}
+ }
+ 
+-int mlx5_eswitch_enable(struct mlx5_eswitch *esw, int mode)
++static void
++mlx5_eswitch_update_num_of_vfs(struct mlx5_eswitch *esw, int num_vfs)
++{
++	const u32 *out;
++
++	WARN_ON_ONCE(esw->mode != MLX5_ESWITCH_NONE);
++
++	if (num_vfs < 0)
++		return;
++
++	if (!mlx5_core_is_ecpf_esw_manager(esw->dev)) {
++		esw->esw_funcs.num_vfs = num_vfs;
++		return;
++	}
++
++	out = mlx5_esw_query_functions(esw->dev);
++	if (IS_ERR(out))
++		return;
++
++	esw->esw_funcs.num_vfs = MLX5_GET(query_esw_functions_out, out,
++					  host_params_context.host_num_of_vfs);
++	kvfree(out);
++}
++
++/**
++ * mlx5_eswitch_enable - Enable eswitch
++ * @esw:	Pointer to eswitch
++ * @mode:	Eswitch mode to enable
++ * @num_vfs:	Enable eswitch for given number of VFs. This is optional.
++ *		Valid value are 0, > 0 and MLX5_ESWITCH_IGNORE_NUM_VFS.
++ *		Caller should pass num_vfs > 0 when enabling eswitch for
++ *		vf vports. Caller should pass num_vfs = 0, when eswitch
++ *		is enabled without sriov VFs or when caller
++ *		is unaware of the sriov state of the host PF on ECPF based
++ *		eswitch. Caller should pass < 0 when num_vfs should be
++ *		completely ignored. This is typically the case when eswitch
++ *		is enabled without sriov regardless of PF/ECPF system.
++ * mlx5_eswitch_enable() Enables eswitch in either legacy or offloads mode.
++ * If num_vfs >=0 is provided, it setup VF related eswitch vports. It returns
++ * 0 on success or error code on failure.
++ */
++int mlx5_eswitch_enable(struct mlx5_eswitch *esw, int mode, int num_vfs)
+ {
+ 	int err;
+ 
+@@ -2044,6 +2085,8 @@ int mlx5_eswitch_enable(struct mlx5_eswitch *esw, int mode)
+ 
+ 	mlx5_eswitch_get_devlink_param(esw);
+ 
++	mlx5_eswitch_update_num_of_vfs(esw, num_vfs);
++
+ 	esw_create_tsar(esw);
+ 
+ 	esw->mode = mode;
+@@ -2772,22 +2815,4 @@ bool mlx5_esw_multipath_prereq(struct mlx5_core_dev *dev0,
+ 		dev1->priv.eswitch->mode == MLX5_ESWITCH_OFFLOADS);
+ }
+ 
+-void mlx5_eswitch_update_num_of_vfs(struct mlx5_eswitch *esw, const int num_vfs)
+-{
+-	const u32 *out;
+-
+-	WARN_ON_ONCE(esw->mode != MLX5_ESWITCH_NONE);
+-
+-	if (!mlx5_core_is_ecpf_esw_manager(esw->dev)) {
+-		esw->esw_funcs.num_vfs = num_vfs;
+-		return;
+-	}
+-
+-	out = mlx5_esw_query_functions(esw->dev);
+-	if (IS_ERR(out))
+-		return;
+ 
+-	esw->esw_funcs.num_vfs = MLX5_GET(query_esw_functions_out, out,
+-					  host_params_context.host_num_of_vfs);
+-	kvfree(out);
+-}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index dafeb2000269..5ec76f48e9b7 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -335,7 +335,9 @@ int mlx5_esw_modify_vport_rate(struct mlx5_eswitch *esw, u16 vport_num,
+ /* E-Switch API */
+ int mlx5_eswitch_init(struct mlx5_core_dev *dev);
+ void mlx5_eswitch_cleanup(struct mlx5_eswitch *esw);
+-int mlx5_eswitch_enable(struct mlx5_eswitch *esw, int mode);
++
++#define MLX5_ESWITCH_IGNORE_NUM_VFS (-1)
++int mlx5_eswitch_enable(struct mlx5_eswitch *esw, int mode, int num_vfs);
+ void mlx5_eswitch_disable(struct mlx5_eswitch *esw, bool clear_vf);
+ int mlx5_eswitch_set_vport_mac(struct mlx5_eswitch *esw,
+ 			       u16 vport, u8 mac[ETH_ALEN]);
+@@ -673,7 +675,6 @@ mlx5_eswitch_get_vport(struct mlx5_eswitch *esw, u16 vport_num);
+ 
+ bool mlx5_eswitch_is_vf_vport(const struct mlx5_eswitch *esw, u16 vport_num);
+ 
+-void mlx5_eswitch_update_num_of_vfs(struct mlx5_eswitch *esw, const int num_vfs);
+ int mlx5_esw_funcs_changed_handler(struct notifier_block *nb, unsigned long type, void *data);
+ 
+ int
+@@ -700,7 +701,7 @@ esw_get_max_restore_tag(struct mlx5_eswitch *esw);
+ /* eswitch API stubs */
+ static inline int  mlx5_eswitch_init(struct mlx5_core_dev *dev) { return 0; }
+ static inline void mlx5_eswitch_cleanup(struct mlx5_eswitch *esw) {}
+-static inline int  mlx5_eswitch_enable(struct mlx5_eswitch *esw, int mode) { return 0; }
++static inline int mlx5_eswitch_enable(struct mlx5_eswitch *esw, int mode, int num_vfs) { return 0; }
+ static inline void mlx5_eswitch_disable(struct mlx5_eswitch *esw, bool clear_vf) {}
+ static inline bool mlx5_esw_lag_prereq(struct mlx5_core_dev *dev0, struct mlx5_core_dev *dev1) { return true; }
+ static inline bool mlx5_eswitch_is_funcs_handler(struct mlx5_core_dev *dev) { return false; }
+@@ -709,14 +710,11 @@ static inline const u32 *mlx5_esw_query_functions(struct mlx5_core_dev *dev)
+ 	return ERR_PTR(-EOPNOTSUPP);
+ }
+ 
+-static inline void mlx5_eswitch_update_num_of_vfs(struct mlx5_eswitch *esw, const int num_vfs) {}
+-
+ static inline struct mlx5_flow_handle *
+ esw_add_restore_rule(struct mlx5_eswitch *esw, u32 tag)
+ {
+ 	return ERR_PTR(-EOPNOTSUPP);
+ }
+-
+ #endif /* CONFIG_MLX5_ESWITCH */
+ 
+ #endif /* __MLX5_ESWITCH_H__ */
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 1b74a6f35df9..29280218518a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -1550,12 +1550,13 @@ static int esw_offloads_start(struct mlx5_eswitch *esw,
+ 	}
+ 
+ 	mlx5_eswitch_disable(esw, false);
+-	mlx5_eswitch_update_num_of_vfs(esw, esw->dev->priv.sriov.num_vfs);
+-	err = mlx5_eswitch_enable(esw, MLX5_ESWITCH_OFFLOADS);
++	err = mlx5_eswitch_enable(esw, MLX5_ESWITCH_OFFLOADS,
++				  esw->dev->priv.sriov.num_vfs);
+ 	if (err) {
+ 		NL_SET_ERR_MSG_MOD(extack,
+ 				   "Failed setting eswitch to offloads");
+-		err1 = mlx5_eswitch_enable(esw, MLX5_ESWITCH_LEGACY);
++		err1 = mlx5_eswitch_enable(esw, MLX5_ESWITCH_LEGACY,
++					   MLX5_ESWITCH_IGNORE_NUM_VFS);
+ 		if (err1) {
+ 			NL_SET_ERR_MSG_MOD(extack,
+ 					   "Failed setting eswitch back to legacy");
+@@ -2473,10 +2474,12 @@ static int esw_offloads_stop(struct mlx5_eswitch *esw,
+ 	int err, err1;
+ 
+ 	mlx5_eswitch_disable(esw, false);
+-	err = mlx5_eswitch_enable(esw, MLX5_ESWITCH_LEGACY);
++	err = mlx5_eswitch_enable(esw, MLX5_ESWITCH_LEGACY,
++				  MLX5_ESWITCH_IGNORE_NUM_VFS);
+ 	if (err) {
+ 		NL_SET_ERR_MSG_MOD(extack, "Failed setting eswitch to legacy");
+-		err1 = mlx5_eswitch_enable(esw, MLX5_ESWITCH_OFFLOADS);
++		err1 = mlx5_eswitch_enable(esw, MLX5_ESWITCH_OFFLOADS,
++					   MLX5_ESWITCH_IGNORE_NUM_VFS);
+ 		if (err1) {
+ 			NL_SET_ERR_MSG_MOD(extack,
+ 					   "Failed setting eswitch back to offloads");
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/sriov.c b/drivers/net/ethernet/mellanox/mlx5/core/sriov.c
+index 03f037811f1d..10a64b91d04c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/sriov.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/sriov.c
+@@ -77,8 +77,8 @@ static int mlx5_device_enable_sriov(struct mlx5_core_dev *dev, int num_vfs)
+ 	if (!MLX5_ESWITCH_MANAGER(dev))
+ 		goto enable_vfs_hca;
+ 
+-	mlx5_eswitch_update_num_of_vfs(dev->priv.eswitch, num_vfs);
+-	err = mlx5_eswitch_enable(dev->priv.eswitch, MLX5_ESWITCH_LEGACY);
++	err = mlx5_eswitch_enable(dev->priv.eswitch, MLX5_ESWITCH_LEGACY,
++				  num_vfs);
+ 	if (err) {
+ 		mlx5_core_warn(dev,
+ 			       "failed to enable eswitch SRIOV (%d)\n", err);
+-- 
+2.13.6
+

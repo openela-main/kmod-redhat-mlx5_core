@@ -1,0 +1,142 @@
+From 18c6aef4724e84bf5304789fc51ce44c76cccd72 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:03:53 -0400
+Subject: [PATCH 076/312] [netdrv] net/mlx5: Move metdata fields under offloads
+ structure
+
+Message-id: <20200510150452.10307-29-ahleihel@redhat.com>
+Patchwork-id: 306651
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 28/87] net/mlx5: Move metdata fields under offloads structure
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5-rc1
+
+commit d68316b5a1046b489097c5e5e24139548b79971f
+Author: Parav Pandit <parav@mellanox.com>
+Date:   Mon Oct 28 23:35:10 2019 +0000
+
+    net/mlx5: Move metdata fields under offloads structure
+
+    Metadata fields are offload mode specific.
+    To improve code readability, move metadata under offloads structure.
+
+    Signed-off-by: Parav Pandit <parav@mellanox.com>
+    Reviewed-by: Vu Pham <vuhuong@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  8 ++++++
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 33 +++++++++++-----------
+ 2 files changed, 25 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index a90af41d8220..f21d528057fa 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -69,11 +69,19 @@ struct vport_ingress {
+ 	struct mlx5_flow_group *allow_spoofchk_only_grp;
+ 	struct mlx5_flow_group *allow_untagged_only_grp;
+ 	struct mlx5_flow_group *drop_grp;
++#ifdef __GENKSYMS__
+ 	struct mlx5_modify_hdr   *modify_metadata;
+ 	struct mlx5_flow_handle  *modify_metadata_rule;
++#endif
+ 	struct mlx5_flow_handle  *allow_rule;
+ 	struct mlx5_flow_handle  *drop_rule;
+ 	struct mlx5_fc           *drop_counter;
++#ifndef __GENKSYMS__
++	struct {
++		struct mlx5_modify_hdr *modify_metadata;
++		struct mlx5_flow_handle *modify_metadata_rule;
++	} offloads;
++#endif
+ };
+ 
+ struct vport_egress {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 657aeea3f879..00d126fa6e02 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -1780,9 +1780,9 @@ static int esw_vport_ingress_prio_tag_config(struct mlx5_eswitch *esw,
+ 	flow_act.vlan[0].vid = 0;
+ 	flow_act.vlan[0].prio = 0;
+ 
+-	if (vport->ingress.modify_metadata_rule) {
++	if (vport->ingress.offloads.modify_metadata_rule) {
+ 		flow_act.action |= MLX5_FLOW_CONTEXT_ACTION_MOD_HDR;
+-		flow_act.modify_hdr = vport->ingress.modify_metadata;
++		flow_act.modify_hdr = vport->ingress.offloads.modify_metadata;
+ 	}
+ 
+ 	vport->ingress.allow_rule =
+@@ -1818,11 +1818,11 @@ static int esw_vport_add_ingress_acl_modify_metadata(struct mlx5_eswitch *esw,
+ 	MLX5_SET(set_action_in, action, data,
+ 		 mlx5_eswitch_get_vport_metadata_for_match(esw, vport->vport));
+ 
+-	vport->ingress.modify_metadata =
++	vport->ingress.offloads.modify_metadata =
+ 		mlx5_modify_header_alloc(esw->dev, MLX5_FLOW_NAMESPACE_ESW_INGRESS,
+ 					 1, action);
+-	if (IS_ERR(vport->ingress.modify_metadata)) {
+-		err = PTR_ERR(vport->ingress.modify_metadata);
++	if (IS_ERR(vport->ingress.offloads.modify_metadata)) {
++		err = PTR_ERR(vport->ingress.offloads.modify_metadata);
+ 		esw_warn(esw->dev,
+ 			 "failed to alloc modify header for vport %d ingress acl (%d)\n",
+ 			 vport->vport, err);
+@@ -1830,32 +1830,33 @@ static int esw_vport_add_ingress_acl_modify_metadata(struct mlx5_eswitch *esw,
+ 	}
+ 
+ 	flow_act.action = MLX5_FLOW_CONTEXT_ACTION_MOD_HDR | MLX5_FLOW_CONTEXT_ACTION_ALLOW;
+-	flow_act.modify_hdr = vport->ingress.modify_metadata;
+-	vport->ingress.modify_metadata_rule = mlx5_add_flow_rules(vport->ingress.acl,
+-								  &spec, &flow_act, NULL, 0);
+-	if (IS_ERR(vport->ingress.modify_metadata_rule)) {
+-		err = PTR_ERR(vport->ingress.modify_metadata_rule);
++	flow_act.modify_hdr = vport->ingress.offloads.modify_metadata;
++	vport->ingress.offloads.modify_metadata_rule =
++				mlx5_add_flow_rules(vport->ingress.acl,
++						    &spec, &flow_act, NULL, 0);
++	if (IS_ERR(vport->ingress.offloads.modify_metadata_rule)) {
++		err = PTR_ERR(vport->ingress.offloads.modify_metadata_rule);
+ 		esw_warn(esw->dev,
+ 			 "failed to add setting metadata rule for vport %d ingress acl, err(%d)\n",
+ 			 vport->vport, err);
+-		vport->ingress.modify_metadata_rule = NULL;
++		vport->ingress.offloads.modify_metadata_rule = NULL;
+ 		goto out;
+ 	}
+ 
+ out:
+ 	if (err)
+-		mlx5_modify_header_dealloc(esw->dev, vport->ingress.modify_metadata);
++		mlx5_modify_header_dealloc(esw->dev, vport->ingress.offloads.modify_metadata);
+ 	return err;
+ }
+ 
+ void esw_vport_del_ingress_acl_modify_metadata(struct mlx5_eswitch *esw,
+ 					       struct mlx5_vport *vport)
+ {
+-	if (vport->ingress.modify_metadata_rule) {
+-		mlx5_del_flow_rules(vport->ingress.modify_metadata_rule);
+-		mlx5_modify_header_dealloc(esw->dev, vport->ingress.modify_metadata);
++	if (vport->ingress.offloads.modify_metadata_rule) {
++		mlx5_del_flow_rules(vport->ingress.offloads.modify_metadata_rule);
++		mlx5_modify_header_dealloc(esw->dev, vport->ingress.offloads.modify_metadata);
+ 
+-		vport->ingress.modify_metadata_rule = NULL;
++		vport->ingress.offloads.modify_metadata_rule = NULL;
+ 	}
+ }
+ 
+-- 
+2.13.6
+

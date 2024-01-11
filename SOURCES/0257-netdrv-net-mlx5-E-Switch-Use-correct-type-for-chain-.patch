@@ -1,0 +1,57 @@
+From 996ee3ea51025a424c908e69ffb74ace7d7caf6d Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:49:19 -0400
+Subject: [PATCH 257/312] [netdrv] net/mlx5: E-Switch, Use correct type for
+ chain, prio and level values
+
+Message-id: <20200519074934.6303-49-ahleihel@redhat.com>
+Patchwork-id: 310563
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 48/63] net/mlx5: E-Switch, Use correct type for chain, prio and level values
+Bugzilla: 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Upstream: v5.7-rc1
+
+commit d528d4970503edafc23bd43d322a818d74954f7a
+Author: Roi Dayan <roid@mellanox.com>
+Date:   Mon Mar 23 12:14:58 2020 +0200
+
+    net/mlx5: E-Switch, Use correct type for chain, prio and level values
+
+    The correct type is u32.
+
+    Fixes: d18296ffd9cc ("net/mlx5: E-Switch, Introduce global tables")
+    Signed-off-by: Roi Dayan <roid@mellanox.com>
+    Reviewed-by: Paul Blakey <paulb@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.c
+index a7d88ab35bbf..1fe488e1b07e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.c
+@@ -726,7 +726,8 @@ mlx5_esw_chains_get_tc_end_ft(struct mlx5_eswitch *esw)
+ struct mlx5_flow_table *
+ mlx5_esw_chains_create_global_table(struct mlx5_eswitch *esw)
+ {
+-	int chain, prio, level, err;
++	u32 chain, prio, level;
++	int err;
+ 
+ 	if (!fdb_ignore_flow_level_supported(esw)) {
+ 		err = -EOPNOTSUPP;
+-- 
+2.13.6
+

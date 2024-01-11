@@ -1,0 +1,104 @@
+From 807c9a6c1824b43987f92a40a7ef47bd582a38e6 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:04:01 -0400
+Subject: [PATCH 084/312] [netdrv] net/mlx5: Restrict metadata disablement to
+ offloads mode
+
+Message-id: <20200510150452.10307-37-ahleihel@redhat.com>
+Patchwork-id: 306660
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 36/87] net/mlx5: Restrict metadata disablement to offloads mode
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5-rc1
+
+commit a962d7a61e2404cda6a89bfa5cc193c62223bb5e
+Author: Parav Pandit <parav@mellanox.com>
+Date:   Mon Oct 28 23:35:24 2019 +0000
+
+    net/mlx5: Restrict metadata disablement to offloads mode
+
+    Now that there is clear separation for acl setup/cleanup between legacy
+    and offloads mode, limit metdata disablement to offloads mode.
+
+    Signed-off-by: Parav Pandit <parav@mellanox.com>
+    Reviewed-by: Vu Pham <vuhuong@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c          | 2 --
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h          | 2 --
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c | 9 ++++++---
+ 3 files changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 91b5ec6c3e13..97af7d793435 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -1209,8 +1209,6 @@ void esw_vport_cleanup_ingress_rules(struct mlx5_eswitch *esw,
+ 		mlx5_del_flow_rules(vport->ingress.allow_rule);
+ 		vport->ingress.allow_rule = NULL;
+ 	}
+-
+-	esw_vport_del_ingress_acl_modify_metadata(esw, vport);
+ }
+ 
+ void esw_vport_disable_ingress_acl(struct mlx5_eswitch *esw,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index 0927019062d2..777224ed18bc 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -282,8 +282,6 @@ void esw_vport_disable_egress_acl(struct mlx5_eswitch *esw,
+ 				  struct mlx5_vport *vport);
+ void esw_vport_disable_ingress_acl(struct mlx5_eswitch *esw,
+ 				   struct mlx5_vport *vport);
+-void esw_vport_del_ingress_acl_modify_metadata(struct mlx5_eswitch *esw,
+-					       struct mlx5_vport *vport);
+ int mlx5_esw_modify_vport_rate(struct mlx5_eswitch *esw, u16 vport_num,
+ 			       u32 rate_mbps);
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 2485c2a7ad9d..767993b10110 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -1849,8 +1849,8 @@ static int esw_vport_add_ingress_acl_modify_metadata(struct mlx5_eswitch *esw,
+ 	return err;
+ }
+ 
+-void esw_vport_del_ingress_acl_modify_metadata(struct mlx5_eswitch *esw,
+-					       struct mlx5_vport *vport)
++static void esw_vport_del_ingress_acl_modify_metadata(struct mlx5_eswitch *esw,
++						      struct mlx5_vport *vport)
+ {
+ 	if (vport->ingress.offloads.modify_metadata_rule) {
+ 		mlx5_del_flow_rules(vport->ingress.offloads.modify_metadata_rule);
+@@ -1976,8 +1976,10 @@ esw_vport_create_offloads_acl_tables(struct mlx5_eswitch *esw,
+ 
+ 	if (mlx5_eswitch_is_vf_vport(esw, vport->vport)) {
+ 		err = esw_vport_egress_config(esw, vport);
+-		if (err)
++		if (err) {
++			esw_vport_del_ingress_acl_modify_metadata(esw, vport);
+ 			esw_vport_disable_ingress_acl(esw, vport);
++		}
+ 	}
+ 	return err;
+ }
+@@ -1987,6 +1989,7 @@ esw_vport_destroy_offloads_acl_tables(struct mlx5_eswitch *esw,
+ 				      struct mlx5_vport *vport)
+ {
+ 	esw_vport_disable_egress_acl(esw, vport);
++	esw_vport_del_ingress_acl_modify_metadata(esw, vport);
+ 	esw_vport_disable_ingress_acl(esw, vport);
+ }
+ 
+-- 
+2.13.6
+

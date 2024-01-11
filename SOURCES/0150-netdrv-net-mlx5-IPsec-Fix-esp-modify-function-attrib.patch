@@ -1,0 +1,57 @@
+From 061a619728519c89cd3009d87289e129f4382c3e Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:13 -0400
+Subject: [PATCH 150/312] [netdrv] net/mlx5: IPsec, Fix esp modify function
+ attribute
+
+Message-id: <20200512105530.4207-48-ahleihel@redhat.com>
+Patchwork-id: 306919
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 047/124] net/mlx5: IPsec, Fix esp modify function attribute
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.6-rc1
+
+commit 0dc2c534f17c05bed0622b37a744bc38b48ca88a
+Author: Raed Salem <raeds@mellanox.com>
+Date:   Tue Dec 24 09:54:45 2019 +0200
+
+    net/mlx5: IPsec, Fix esp modify function attribute
+
+    The function mlx5_fpga_esp_validate_xfrm_attrs is wrongly used
+    with negative negation as zero value indicates success but it
+    used as failure return value instead.
+
+    Fix by remove the unary not negation operator.
+
+    Fixes: 05564d0ae075 ("net/mlx5: Add flow-steering commands for FPGA IPSec implementation")
+    Signed-off-by: Raed Salem <raeds@mellanox.com>
+    Reviewed-by: Boris Pismenny <borisp@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/fpga/ipsec.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/ipsec.c b/drivers/net/ethernet/mellanox/mlx5/core/fpga/ipsec.c
+index e4ec0e03c289..4ed4d4d8e073 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/ipsec.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/ipsec.c
+@@ -1478,7 +1478,7 @@ int mlx5_fpga_esp_modify_xfrm(struct mlx5_accel_esp_xfrm *xfrm,
+ 	if (!memcmp(&xfrm->attrs, attrs, sizeof(xfrm->attrs)))
+ 		return 0;
+ 
+-	if (!mlx5_fpga_esp_validate_xfrm_attrs(mdev, attrs)) {
++	if (mlx5_fpga_esp_validate_xfrm_attrs(mdev, attrs)) {
+ 		mlx5_core_warn(mdev, "Tried to create an esp with unsupported attrs\n");
+ 		return -EOPNOTSUPP;
+ 	}
+-- 
+2.13.6
+

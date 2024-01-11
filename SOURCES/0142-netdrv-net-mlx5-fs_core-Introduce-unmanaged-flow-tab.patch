@@ -1,0 +1,158 @@
+From 033fa865cbce7eef7ccf369fa254ab03c8b6a2fc Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:02 -0400
+Subject: [PATCH 142/312] [netdrv] net/mlx5: fs_core: Introduce unmanaged flow
+ tables
+
+Message-id: <20200512105530.4207-37-ahleihel@redhat.com>
+Patchwork-id: 306908
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 036/124] net/mlx5: fs_core: Introduce unmanaged flow tables
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.6-rc1
+
+commit 5281a0c909194c477656e89401ac11dd7b29ad2d
+Author: Paul Blakey <paulb@mellanox.com>
+Date:   Tue Jul 23 11:43:57 2019 +0300
+
+    net/mlx5: fs_core: Introduce unmanaged flow tables
+
+    Currently, Most of the steering tree is statically declared ahead of time,
+    with steering prios instances allocated for each fdb chain to assign max
+    number of levels for each of them. This allows fs_core to manage the
+    connections and  levels of the flow tables hierarcy to prevent loops, but
+    restricts us with the number of supported chains and priorities.
+
+    Introduce unmananged flow tables, allowing the user to manage the flow
+    table connections. A unamanged table is detached from the fs_core flow
+    table hierarcy, and is only connected back to the hierarchy by explicit
+    FTEs forward actions.
+
+    This will be used together with firmware that supports ignoring the flow
+    table levels to increase the number of supported chains and prios.
+
+    Signed-off-by: Paul Blakey <paulb@mellanox.com>
+    Reviewed-by: Roi Dayan <roid@mellanox.com>
+    Reviewed-by: Oz Shlomo <ozsh@mellanox.com>
+    Reviewed-by: Mark Bloch <markb@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 41 ++++++++++++++++-------
+ include/linux/mlx5/fs.h                           |  2 ++
+ 2 files changed, 31 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index cb5f2643fecb..703799975f22 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -1006,7 +1006,8 @@ static struct mlx5_flow_table *__mlx5_create_flow_table(struct mlx5_flow_namespa
+ 							u16 vport)
+ {
+ 	struct mlx5_flow_root_namespace *root = find_root(&ns->node);
+-	struct mlx5_flow_table *next_ft = NULL;
++	bool unmanaged = ft_attr->flags & MLX5_FLOW_TABLE_UNMANAGED;
++	struct mlx5_flow_table *next_ft;
+ 	struct fs_prio *fs_prio = NULL;
+ 	struct mlx5_flow_table *ft;
+ 	int log_table_sz;
+@@ -1023,14 +1024,21 @@ static struct mlx5_flow_table *__mlx5_create_flow_table(struct mlx5_flow_namespa
+ 		err = -EINVAL;
+ 		goto unlock_root;
+ 	}
+-	if (ft_attr->level >= fs_prio->num_levels) {
+-		err = -ENOSPC;
+-		goto unlock_root;
++	if (!unmanaged) {
++		/* The level is related to the
++		 * priority level range.
++		 */
++		if (ft_attr->level >= fs_prio->num_levels) {
++			err = -ENOSPC;
++			goto unlock_root;
++		}
++
++		ft_attr->level += fs_prio->start_level;
+ 	}
++
+ 	/* The level is related to the
+ 	 * priority level range.
+ 	 */
+-	ft_attr->level += fs_prio->start_level;
+ 	ft = alloc_flow_table(ft_attr->level,
+ 			      vport,
+ 			      ft_attr->max_fte ? roundup_pow_of_two(ft_attr->max_fte) : 0,
+@@ -1043,19 +1051,27 @@ static struct mlx5_flow_table *__mlx5_create_flow_table(struct mlx5_flow_namespa
+ 
+ 	tree_init_node(&ft->node, del_hw_flow_table, del_sw_flow_table);
+ 	log_table_sz = ft->max_fte ? ilog2(ft->max_fte) : 0;
+-	next_ft = find_next_chained_ft(fs_prio);
++	next_ft = unmanaged ? ft_attr->next_ft :
++			      find_next_chained_ft(fs_prio);
+ 	ft->def_miss_action = ns->def_miss_action;
+ 	err = root->cmds->create_flow_table(root, ft, log_table_sz, next_ft);
+ 	if (err)
+ 		goto free_ft;
+ 
+-	err = connect_flow_table(root->dev, ft, fs_prio);
+-	if (err)
+-		goto destroy_ft;
++	if (!unmanaged) {
++		err = connect_flow_table(root->dev, ft, fs_prio);
++		if (err)
++			goto destroy_ft;
++	}
++
+ 	ft->node.active = true;
+ 	down_write_ref_node(&fs_prio->node, false);
+-	tree_add_node(&ft->node, &fs_prio->node);
+-	list_add_flow_table(ft, fs_prio);
++	if (!unmanaged) {
++		tree_add_node(&ft->node, &fs_prio->node);
++		list_add_flow_table(ft, fs_prio);
++	} else {
++		ft->node.root = fs_prio->node.root;
++	}
+ 	fs_prio->num_ft++;
+ 	up_write_ref_node(&fs_prio->node, false);
+ 	mutex_unlock(&root->chain_lock);
+@@ -2044,7 +2060,8 @@ int mlx5_destroy_flow_table(struct mlx5_flow_table *ft)
+ 	int err = 0;
+ 
+ 	mutex_lock(&root->chain_lock);
+-	err = disconnect_flow_table(ft);
++	if (!(ft->flags & MLX5_FLOW_TABLE_UNMANAGED))
++		err = disconnect_flow_table(ft);
+ 	if (err) {
+ 		mutex_unlock(&root->chain_lock);
+ 		return err;
+diff --git a/include/linux/mlx5/fs.h b/include/linux/mlx5/fs.h
+index a9de8e28ae6f..72bc6585f732 100644
+--- a/include/linux/mlx5/fs.h
++++ b/include/linux/mlx5/fs.h
+@@ -48,6 +48,7 @@ enum {
+ 	MLX5_FLOW_TABLE_TUNNEL_EN_REFORMAT = BIT(0),
+ 	MLX5_FLOW_TABLE_TUNNEL_EN_DECAP = BIT(1),
+ 	MLX5_FLOW_TABLE_TERMINATION = BIT(2),
++	MLX5_FLOW_TABLE_UNMANAGED = BIT(3),
+ };
+ 
+ #define LEFTOVERS_RULE_NUM	 2
+@@ -160,6 +161,7 @@ struct mlx5_flow_table_attr {
+ 	int max_fte;
+ 	u32 level;
+ 	u32 flags;
++	struct mlx5_flow_table *next_ft;
+ 
+ 	struct {
+ 		int max_num_groups;
+-- 
+2.13.6
+

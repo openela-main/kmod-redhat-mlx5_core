@@ -1,0 +1,13 @@
+Index: src/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+===================================================================
+--- src.orig/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h	2020-07-14 03:26:20.193719944 +0200
++++ src/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h	2020-07-14 03:32:06.851933944 +0200
+@@ -44,7 +44,7 @@
+ #include <linux/mlx5/driver.h>
+ 
+ #define DRIVER_NAME "mlx5_core"
+-#define DRIVER_VERSION "5.0-0"
++#define DRIVER_VERSION "5.0-0_dup8.2"
+ 
+ extern uint mlx5_core_debug_mask;
+ 

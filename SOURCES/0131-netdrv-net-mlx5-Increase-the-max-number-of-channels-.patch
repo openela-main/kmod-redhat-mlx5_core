@@ -1,0 +1,128 @@
+From 5f7d29b04eb5cc609b4cae6aabd0e77353452f62 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:53:37 -0400
+Subject: [PATCH 131/312] [netdrv] net/mlx5: Increase the max number of
+ channels to 128
+
+Message-id: <20200512105530.4207-12-ahleihel@redhat.com>
+Patchwork-id: 306883
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 011/124] net/mlx5: Increase the max number of channels to 128
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.6-rc1
+
+commit 57c7fce14b1ad512a42abe33cb721a2ea3520d4b
+Author: Fan Li <fanl@mellanox.com>
+Date:   Mon Dec 16 14:46:15 2019 +0200
+
+    net/mlx5: Increase the max number of channels to 128
+
+    Currently the max number of channels is limited to 64, which is half of
+    the indirection table size to allow some flexibility. But on servers
+    with more than 64 cores, users may want to utilize more queues.
+
+    This patch increases the advertised max number of channels to 128 by
+    changing the ratio between channels and indirection table slots to 1:1.
+    At the same time, the driver still enable no more than 64 channels at
+    loading. Users can change it by ethtool afterwards.
+
+    Signed-off-by: Fan Li <fanl@mellanox.com>
+    Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h          |  6 +++---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c     | 12 +++++++-----
+ drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c |  4 ++--
+ 3 files changed, 12 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 319797f42105..bd34b1851162 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -134,7 +134,7 @@ struct page_pool;
+ #define MLX5E_LOG_INDIR_RQT_SIZE       0x7
+ #define MLX5E_INDIR_RQT_SIZE           BIT(MLX5E_LOG_INDIR_RQT_SIZE)
+ #define MLX5E_MIN_NUM_CHANNELS         0x1
+-#define MLX5E_MAX_NUM_CHANNELS         (MLX5E_INDIR_RQT_SIZE >> 1)
++#define MLX5E_MAX_NUM_CHANNELS         MLX5E_INDIR_RQT_SIZE
+ #define MLX5E_MAX_NUM_SQS              (MLX5E_MAX_NUM_CHANNELS * MLX5E_MAX_NUM_TC)
+ #define MLX5E_TX_CQ_POLL_BUDGET        128
+ #define MLX5E_TX_XSK_POLL_BUDGET       64
+@@ -1170,11 +1170,11 @@ int mlx5e_attach_netdev(struct mlx5e_priv *priv);
+ void mlx5e_detach_netdev(struct mlx5e_priv *priv);
+ void mlx5e_destroy_netdev(struct mlx5e_priv *priv);
+ void mlx5e_set_netdev_mtu_boundaries(struct mlx5e_priv *priv);
+-void mlx5e_build_nic_params(struct mlx5_core_dev *mdev,
++void mlx5e_build_nic_params(struct mlx5e_priv *priv,
+ 			    struct mlx5e_xsk *xsk,
+ 			    struct mlx5e_rss_params *rss_params,
+ 			    struct mlx5e_params *params,
+-			    u16 max_channels, u16 mtu);
++			    u16 mtu);
+ void mlx5e_build_rq_params(struct mlx5_core_dev *mdev,
+ 			   struct mlx5e_params *params);
+ void mlx5e_build_rss_params(struct mlx5e_rss_params *rss_params,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 2f337a70e157..7815cae1af54 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -4737,17 +4737,19 @@ void mlx5e_build_rss_params(struct mlx5e_rss_params *rss_params,
+ 			tirc_default_config[tt].rx_hash_fields;
+ }
+ 
+-void mlx5e_build_nic_params(struct mlx5_core_dev *mdev,
++void mlx5e_build_nic_params(struct mlx5e_priv *priv,
+ 			    struct mlx5e_xsk *xsk,
+ 			    struct mlx5e_rss_params *rss_params,
+ 			    struct mlx5e_params *params,
+-			    u16 max_channels, u16 mtu)
++			    u16 mtu)
+ {
++	struct mlx5_core_dev *mdev = priv->mdev;
+ 	u8 rx_cq_period_mode;
+ 
+ 	params->sw_mtu = mtu;
+ 	params->hard_mtu = MLX5E_ETH_HARD_MTU;
+-	params->num_channels = max_channels;
++	params->num_channels = min_t(unsigned int, MLX5E_MAX_NUM_CHANNELS / 2,
++				     priv->max_nch);
+ 	params->num_tc       = 1;
+ 
+ 	/* SQ */
+@@ -4986,8 +4988,8 @@ static int mlx5e_nic_init(struct mlx5_core_dev *mdev,
+ 	if (err)
+ 		return err;
+ 
+-	mlx5e_build_nic_params(mdev, &priv->xsk, rss, &priv->channels.params,
+-			       priv->max_nch, netdev->mtu);
++	mlx5e_build_nic_params(priv, &priv->xsk, rss, &priv->channels.params,
++			       netdev->mtu);
+ 
+ 	mlx5e_timestamp_init(priv);
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
+index c4323bd42132..56078b23f1a0 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
+@@ -87,8 +87,8 @@ int mlx5i_init(struct mlx5_core_dev *mdev,
+ 	mlx5e_set_netdev_mtu_boundaries(priv);
+ 	netdev->mtu = netdev->max_mtu;
+ 
+-	mlx5e_build_nic_params(mdev, NULL, &priv->rss_params, &priv->channels.params,
+-			       priv->max_nch, netdev->mtu);
++	mlx5e_build_nic_params(priv, NULL, &priv->rss_params, &priv->channels.params,
++			       netdev->mtu);
+ 	mlx5i_build_nic_params(mdev, &priv->channels.params);
+ 
+ 	mlx5e_timestamp_init(priv);
+-- 
+2.13.6
+

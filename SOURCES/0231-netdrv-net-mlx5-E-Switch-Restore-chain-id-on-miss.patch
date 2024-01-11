@@ -1,0 +1,142 @@
+From 08538a7288a5d470ad96476b5aa2c9c4f995e06f Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:48:53 -0400
+Subject: [PATCH 231/312] [netdrv] net/mlx5: E-Switch, Restore chain id on miss
+
+Message-id: <20200519074934.6303-23-ahleihel@redhat.com>
+Patchwork-id: 310525
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 22/63] net/mlx5: E-Switch, Restore chain id on miss
+Bugzilla: 1790219 1790218 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Bugzilla: http://bugzilla.redhat.com/1790219
+Bugzilla: http://bugzilla.redhat.com/1790218
+Upstream: v5.7-rc1
+
+commit d6d27782864f7dd5584fefe050c030283cc40d71
+Author: Paul Blakey <paulb@mellanox.com>
+Date:   Sun Feb 16 12:01:30 2020 +0200
+
+    net/mlx5: E-Switch, Restore chain id on miss
+
+    Chain ids are mapped to the lower part of reg C, and after loopback
+    are copied to to CQE via a restore rule's flow_tag.
+
+    To let tc continue in the correct chain, we find the corresponding
+    chain id in the eswitch chain id <-> reg C mapping, and set the SKB's
+    tc extension chain to it.
+
+    That tells tc to continue processing from this set chain.
+
+    Signed-off-by: Paul Blakey <paulb@mellanox.com>
+    Reviewed-by: Roi Dayan <roid@mellanox.com>
+    Reviewed-by: Oz Shlomo <ozsh@mellanox.com>
+    Reviewed-by: Mark Bloch <markb@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c |  6 ++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 43 +++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.h |  2 ++
+ 3 files changed, 51 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index 85c2428c2f3e..1baeba194794 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -1226,6 +1226,9 @@ void mlx5e_handle_rx_cqe_rep(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
+ 	if (rep->vlan && skb_vlan_tag_present(skb))
+ 		skb_vlan_pop(skb);
+ 
++	if (!mlx5e_tc_rep_update_skb(cqe, skb))
++		goto free_wqe;
++
+ 	napi_gro_receive(rq->cq.napi, skb);
+ 
+ free_wqe:
+@@ -1276,6 +1279,9 @@ void mlx5e_handle_rx_cqe_mpwrq_rep(struct mlx5e_rq *rq,
+ 
+ 	mlx5e_complete_rx_cqe(rq, cqe, cqe_bcnt, skb);
+ 
++	if (!mlx5e_tc_rep_update_skb(cqe, skb))
++		goto mpwrq_cqe_out;
++
+ 	napi_gro_receive(rq->cq.napi, skb);
+ 
+ mpwrq_cqe_out:
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index a9142bde2dc6..8523dedd8065 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -4393,3 +4393,46 @@ void mlx5e_tc_reoffload_flows_work(struct work_struct *work)
+ 	}
+ 	mutex_unlock(&rpriv->unready_flows_lock);
+ }
++
++bool mlx5e_tc_rep_update_skb(struct mlx5_cqe64 *cqe,
++			     struct sk_buff *skb)
++{
++#if IS_ENABLED(CONFIG_NET_TC_SKB_EXT)
++	struct tc_skb_ext *tc_skb_ext;
++	struct mlx5_eswitch *esw;
++	struct mlx5e_priv *priv;
++	u32 chain = 0, reg_c0;
++	int err;
++
++	reg_c0 = (be32_to_cpu(cqe->sop_drop_qpn) & MLX5E_TC_FLOW_ID_MASK);
++	if (reg_c0 == MLX5_FS_DEFAULT_FLOW_TAG)
++		reg_c0 = 0;
++
++	if (!reg_c0)
++		return true;
++
++	priv = netdev_priv(skb->dev);
++	esw = priv->mdev->priv.eswitch;
++
++	err = mlx5_eswitch_get_chain_for_tag(esw, reg_c0, &chain);
++	if (err) {
++		netdev_dbg(priv->netdev,
++			   "Couldn't find chain for chain tag: %d, err: %d\n",
++			   reg_c0, err);
++		return false;
++	}
++
++	if (!chain)
++		return true;
++
++	tc_skb_ext = skb_ext_add(skb, TC_SKB_EXT);
++	if (!tc_skb_ext) {
++		WARN_ON_ONCE(1);
++		return false;
++	}
++
++	tc_skb_ext->chain = chain;
++#endif /* CONFIG_NET_TC_SKB_EXT */
++
++	return true;
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
+index e2dbbae6d4d7..9d5fcf61650c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
+@@ -106,6 +106,8 @@ extern struct mlx5e_tc_attr_to_reg_mapping mlx5e_tc_attr_to_reg_mappings[];
+ bool mlx5e_is_valid_eswitch_fwd_dev(struct mlx5e_priv *priv,
+ 				    struct net_device *out_dev);
+ 
++bool mlx5e_tc_rep_update_skb(struct mlx5_cqe64 *cqe, struct sk_buff *skb);
++
+ #else /* CONFIG_MLX5_ESWITCH */
+ static inline int  mlx5e_tc_nic_init(struct mlx5e_priv *priv) { return 0; }
+ static inline void mlx5e_tc_nic_cleanup(struct mlx5e_priv *priv) {}
+-- 
+2.13.6
+

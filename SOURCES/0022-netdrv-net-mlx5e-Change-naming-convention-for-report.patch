@@ -1,0 +1,149 @@
+From 287e3c4357bff248a4b5228fd39588cc7d43c860 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:51:46 -0400
+Subject: [PATCH 022/312] [netdrv] net/mlx5e: Change naming convention for
+ reporter's functions
+
+Message-id: <20200510145245.10054-24-ahleihel@redhat.com>
+Patchwork-id: 306563
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 23/82] net/mlx5e: Change naming convention for reporter's functions
+Bugzilla: 1790198 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Bugzilla: http://bugzilla.redhat.com/1790198
+Upstream: v5.4-rc1
+Conflicts:
+ - drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+   Context diff due to already backported commit
+   3c14562663c6 ("net/mlx5e: Expose new function for TIS destroy loop")
+   ---> We now call mlx5e_destroy_tises instead of the for loop.
+
+commit 06293ae4fa0a1b62bf3bb8add8f9bbe8815b0aba
+Author: Aya Levin <ayal@mellanox.com>
+Date:   Mon Jul 1 15:51:51 2019 +0300
+
+    net/mlx5e: Change naming convention for reporter's functions
+
+    Change from mlx5e_tx_reporter_* to mlx5e_reporter_tx_*. In the following
+    patches in the set rx reporter is added, the new naming convention is
+    more uniformed.
+
+    Signed-off-by: Aya Levin <ayal@mellanox.com>
+    Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+    Acked-by: Jiri Pirko <jiri@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en/health.h      | 8 ++++----
+ drivers/net/ethernet/mellanox/mlx5/core/en/reporter_tx.c | 8 ++++----
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c        | 8 ++++----
+ 3 files changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/health.h b/drivers/net/ethernet/mellanox/mlx5/core/en/health.h
+index cee840e40a05..c7a5a149011e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/health.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/health.h
+@@ -6,9 +6,9 @@
+ 
+ #include "en.h"
+ 
+-int mlx5e_tx_reporter_create(struct mlx5e_priv *priv);
+-void mlx5e_tx_reporter_destroy(struct mlx5e_priv *priv);
+-void mlx5e_tx_reporter_err_cqe(struct mlx5e_txqsq *sq);
+-int mlx5e_tx_reporter_timeout(struct mlx5e_txqsq *sq);
++int mlx5e_reporter_tx_create(struct mlx5e_priv *priv);
++void mlx5e_reporter_tx_destroy(struct mlx5e_priv *priv);
++void mlx5e_reporter_tx_err_cqe(struct mlx5e_txqsq *sq);
++int mlx5e_reporter_tx_timeout(struct mlx5e_txqsq *sq);
+ 
+ #endif
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/reporter_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en/reporter_tx.c
+index 9ff19d69619f..62b95f62e4dc 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/reporter_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/reporter_tx.c
+@@ -123,7 +123,7 @@ static int mlx5_tx_health_report(struct devlink_health_reporter *tx_reporter,
+ 	return devlink_health_report(tx_reporter, err_str, err_ctx);
+ }
+ 
+-void mlx5e_tx_reporter_err_cqe(struct mlx5e_txqsq *sq)
++void mlx5e_reporter_tx_err_cqe(struct mlx5e_txqsq *sq)
+ {
+ 	char err_str[MLX5E_TX_REPORTER_PER_SQ_MAX_LEN];
+ 	struct mlx5e_tx_err_ctx err_ctx = {0};
+@@ -156,7 +156,7 @@ static int mlx5e_tx_reporter_timeout_recover(struct mlx5e_txqsq *sq)
+ 	return 0;
+ }
+ 
+-int mlx5e_tx_reporter_timeout(struct mlx5e_txqsq *sq)
++int mlx5e_reporter_tx_timeout(struct mlx5e_txqsq *sq)
+ {
+ 	char err_str[MLX5E_TX_REPORTER_PER_SQ_MAX_LEN];
+ 	struct mlx5e_tx_err_ctx err_ctx;
+@@ -285,7 +285,7 @@ static const struct devlink_health_reporter_ops mlx5_tx_reporter_ops = {
+ 
+ #define MLX5_REPORTER_TX_GRACEFUL_PERIOD 500
+ 
+-int mlx5e_tx_reporter_create(struct mlx5e_priv *priv)
++int mlx5e_reporter_tx_create(struct mlx5e_priv *priv)
+ {
+ 	struct devlink_health_reporter *reporter;
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+@@ -305,7 +305,7 @@ int mlx5e_tx_reporter_create(struct mlx5e_priv *priv)
+ 	return 0;
+ }
+ 
+-void mlx5e_tx_reporter_destroy(struct mlx5e_priv *priv)
++void mlx5e_reporter_tx_destroy(struct mlx5e_priv *priv)
+ {
+ 	if (!priv->tx_reporter)
+ 		return;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 118ad4717bfd..49f5dbab2b8e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1373,7 +1373,7 @@ static void mlx5e_tx_err_cqe_work(struct work_struct *recover_work)
+ 	struct mlx5e_txqsq *sq = container_of(recover_work, struct mlx5e_txqsq,
+ 					      recover_work);
+ 
+-	mlx5e_tx_reporter_err_cqe(sq);
++	mlx5e_reporter_tx_err_cqe(sq);
+ }
+ 
+ int mlx5e_open_icosq(struct mlx5e_channel *c, struct mlx5e_params *params,
+@@ -3210,7 +3210,7 @@ int mlx5e_create_tises(struct mlx5e_priv *priv)
+ static void mlx5e_cleanup_nic_tx(struct mlx5e_priv *priv)
+ {
+ 
+-	mlx5e_tx_reporter_destroy(priv);
++	mlx5e_reporter_tx_destroy(priv);
+ 	mlx5e_destroy_tises(priv);
+ }
+ 
+@@ -4283,7 +4283,7 @@ static void mlx5e_tx_timeout_work(struct work_struct *work)
+ 		if (!netif_xmit_stopped(dev_queue))
+ 			continue;
+ 
+-		if (mlx5e_tx_reporter_timeout(sq))
++		if (mlx5e_reporter_tx_timeout(sq))
+ 			report_failed = true;
+ 	}
+ 
+@@ -5080,7 +5080,7 @@ static int mlx5e_init_nic_tx(struct mlx5e_priv *priv)
+ #ifdef CONFIG_MLX5_CORE_EN_DCB
+ 	mlx5e_dcbnl_initialize(priv);
+ #endif
+-	mlx5e_tx_reporter_create(priv);
++	mlx5e_reporter_tx_create(priv);
+ 	return 0;
+ }
+ 
+-- 
+2.13.6
+

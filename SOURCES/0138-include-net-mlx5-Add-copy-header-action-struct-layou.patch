@@ -1,0 +1,75 @@
+From 63f0cedaf8b1f570ce456a4049cc378e2da429a9 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:53:58 -0400
+Subject: [PATCH 138/312] [include] net/mlx5: Add copy header action struct
+ layout
+
+Message-id: <20200512105530.4207-33-ahleihel@redhat.com>
+Patchwork-id: 306905
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 032/124] net/mlx5: Add copy header action struct layout
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.6-rc1
+
+commit 31d8bde1c8812c9b44065dcd98e554488c6a98d2
+Author: Hamdan Igbaria <hamdani@mellanox.com>
+Date:   Thu Jan 9 13:26:53 2020 +0200
+
+    net/mlx5: Add copy header action struct layout
+
+    Add definition for copy header action, copy action is used
+    to copy header fields from source to destination.
+
+    Signed-off-by: Hamdan Igbaria <hamdani@mellanox.com>
+    Signed-off-by: Alex Vesker <valex@mellanox.com>
+    Reviewed-by: Alex Vesker <valex@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ include/linux/mlx5/mlx5_ifc.h | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 5afcda75c7d6..ef0ed32db813 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -5502,6 +5502,21 @@ struct mlx5_ifc_add_action_in_bits {
+ 	u8         data[0x20];
+ };
+ 
++struct mlx5_ifc_copy_action_in_bits {
++	u8         action_type[0x4];
++	u8         src_field[0xc];
++	u8         reserved_at_10[0x3];
++	u8         src_offset[0x5];
++	u8         reserved_at_18[0x3];
++	u8         length[0x5];
++
++	u8         reserved_at_20[0x4];
++	u8         dst_field[0xc];
++	u8         reserved_at_30[0x3];
++	u8         dst_offset[0x5];
++	u8         reserved_at_38[0x8];
++};
++
+ union mlx5_ifc_set_action_in_add_action_in_auto_bits {
+ 	struct mlx5_ifc_set_action_in_bits set_action_in;
+ 	struct mlx5_ifc_add_action_in_bits add_action_in;
+@@ -5511,6 +5526,7 @@ union mlx5_ifc_set_action_in_add_action_in_auto_bits {
+ enum {
+ 	MLX5_ACTION_TYPE_SET   = 0x1,
+ 	MLX5_ACTION_TYPE_ADD   = 0x2,
++	MLX5_ACTION_TYPE_COPY  = 0x3,
+ };
+ 
+ enum {
+-- 
+2.13.6
+

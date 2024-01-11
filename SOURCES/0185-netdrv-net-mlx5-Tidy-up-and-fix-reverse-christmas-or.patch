@@ -1,0 +1,69 @@
+From aa1dcfe2bcd1c7faaae7007d4ee7464f4b5b2443 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:57 -0400
+Subject: [PATCH 185/312] [netdrv] net/mlx5: Tidy up and fix reverse christmas
+ ordring
+
+Message-id: <20200512105530.4207-92-ahleihel@redhat.com>
+Patchwork-id: 306963
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 091/124] net/mlx5: Tidy up and fix reverse christmas ordring
+Bugzilla: 1831133 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Bugzilla: http://bugzilla.redhat.com/1831133
+Upstream: v5.7-rc1
+
+commit 2f5438ca0ee01a1b3a9c37e3f33d47c8122afe74
+Author: Mark Bloch <markb@mellanox.com>
+Date:   Tue Feb 25 19:24:54 2020 +0000
+
+    net/mlx5: Tidy up and fix reverse christmas ordring
+
+    Use reverse chirstmas tree inside mlx5e_ethtool_get_link_ksettings.
+
+    Signed-off-by: Mark Bloch <markb@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 3b5f4a2c9f4e..cae5da83e793 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -872,18 +872,18 @@ int mlx5e_ethtool_get_link_ksettings(struct mlx5e_priv *priv,
+ 				     struct ethtool_link_ksettings *link_ksettings)
+ {
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+-	u32 out[MLX5_ST_SZ_DW(ptys_reg)] = {0};
++	u32 out[MLX5_ST_SZ_DW(ptys_reg)] = {};
++	u32 eth_proto_admin;
++	u8 an_disable_admin;
+ 	u16 data_rate_oper;
++	u32 eth_proto_oper;
++	u32 eth_proto_cap;
++	u8 connector_type;
+ 	u32 rx_pause = 0;
+ 	u32 tx_pause = 0;
+-	u32 eth_proto_cap;
+-	u32 eth_proto_admin;
+ 	u32 eth_proto_lp;
+-	u32 eth_proto_oper;
+-	u8 an_disable_admin;
+-	u8 an_status;
+-	u8 connector_type;
+ 	bool admin_ext;
++	u8 an_status;
+ 	bool ext;
+ 	int err;
+ 
+-- 
+2.13.6
+

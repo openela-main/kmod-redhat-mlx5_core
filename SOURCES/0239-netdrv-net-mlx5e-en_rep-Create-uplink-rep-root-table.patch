@@ -1,0 +1,65 @@
+From 9ad313bd9dbadd1f235e0869170d9eec9662400e Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:49:01 -0400
+Subject: [PATCH 239/312] [netdrv] net/mlx5e: en_rep: Create uplink rep root
+ table after eswitch offloads table
+
+Message-id: <20200519074934.6303-31-ahleihel@redhat.com>
+Patchwork-id: 310538
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 30/63] net/mlx5e: en_rep: Create uplink rep root table after eswitch offloads table
+Bugzilla: 1790219 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Bugzilla: http://bugzilla.redhat.com/1790219
+Upstream: v5.7-rc1
+
+commit c6fe5729dcff469be1ee3c516f9d9d2c3f1598c2
+Author: Paul Blakey <paulb@mellanox.com>
+Date:   Thu Mar 12 12:23:04 2020 +0200
+
+    net/mlx5e: en_rep: Create uplink rep root table after eswitch offloads table
+
+    The eswitch offloads table, which has the reps (vport) rx miss rules,
+    was moved from OFFLOADS namespace [0,0] (prio, level), to [1,0], so
+    the restore table (the new [0,0]) can come before it. The destinations
+    of these miss rules is the rep root ft (ttc for non uplink reps).
+
+    Uplink rep root ft is created as OFFLOADS namespace [0,1], and is used
+    as a hook to next RX prio (either ethtool or ttc), but this fails to
+    pass fs_core level's check.
+
+    Move uplink rep root ft to OFFLOADS prio 1, level 1 ([1,1]), so it
+    will keep the same relative position after the restore table
+    change.
+
+    Signed-off-by: Paul Blakey <paulb@mellanox.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index 1cb47297285e..797ecdb6a165 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -1600,6 +1600,7 @@ static int mlx5e_create_rep_root_ft(struct mlx5e_priv *priv)
+ 	}
+ 
+ 	ft_attr.max_fte = 0; /* Empty table, miss rule will always point to next table */
++	ft_attr.prio = 1;
+ 	ft_attr.level = 1;
+ 
+ 	rpriv->root_ft = mlx5_create_flow_table(ns, &ft_attr);
+-- 
+2.13.6
+

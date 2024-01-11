@@ -1,0 +1,74 @@
+From dd07c451afec494fe2a72c343b730c3a00563374 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:00 -0400
+Subject: [PATCH 140/312] [include] net/mlx5e: Expose FEC feilds and related
+ capability bit
+
+Message-id: <20200512105530.4207-35-ahleihel@redhat.com>
+Patchwork-id: 306906
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 034/124] net/mlx5e: Expose FEC feilds and related capability bit
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.6-rc1
+
+commit a58837f52d432f32995b1c00e803cc4db18762d3
+Author: Aya Levin <ayal@mellanox.com>
+Date:   Mon Dec 30 14:22:57 2019 +0200
+
+    net/mlx5e: Expose FEC feilds and related capability bit
+
+    Introduce 50G per lane FEC modes capability bit and newly supported
+    fields in PPLM register which allow this configuration.
+
+    Signed-off-by: Aya Levin <ayal@mellanox.com>
+    Reviewed-by: Eran Ben Elisha <eranbe@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ include/linux/mlx5/mlx5_ifc.h | 16 +++++++++++++++-
+ 1 file changed, 15 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 5b9d2eb36ad4..60d1b97197ac 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -8474,6 +8474,18 @@ struct mlx5_ifc_pplm_reg_bits {
+ 	u8	   fec_override_admin_50g[0x4];
+ 	u8	   fec_override_admin_25g[0x4];
+ 	u8	   fec_override_admin_10g_40g[0x4];
++
++	u8         fec_override_cap_400g_8x[0x10];
++	u8         fec_override_cap_200g_4x[0x10];
++
++	u8         fec_override_cap_100g_2x[0x10];
++	u8         fec_override_cap_50g_1x[0x10];
++
++	u8         fec_override_admin_400g_8x[0x10];
++	u8         fec_override_admin_200g_4x[0x10];
++
++	u8         fec_override_admin_100g_2x[0x10];
++	u8         fec_override_admin_50g_1x[0x10];
+ };
+ 
+ struct mlx5_ifc_ppcnt_reg_bits {
+@@ -8800,7 +8812,9 @@ struct mlx5_ifc_mpegc_reg_bits {
+ };
+ 
+ struct mlx5_ifc_pcam_enhanced_features_bits {
+-	u8         reserved_at_0[0x6d];
++	u8         reserved_at_0[0x68];
++	u8         fec_50G_per_lane_in_pplm[0x1];
++	u8         reserved_at_69[0x4];
+ 	u8         rx_icrc_encapsulated_counter[0x1];
+ 	u8	   reserved_at_6e[0x4];
+ 	u8         ptys_extended_ethernet[0x1];
+-- 
+2.13.6
+

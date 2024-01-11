@@ -1,0 +1,24 @@
+Index: src/drivers/net/ethernet/mellanox/mlx5/core/backport_compat.h
+===================================================================
+--- src.orig/drivers/net/ethernet/mellanox/mlx5/core/backport_compat.h	2020-07-15 10:38:44.900954789 +0200
++++ src/drivers/net/ethernet/mellanox/mlx5/core/backport_compat.h	2020-07-15 10:38:50.070957254 +0200
+@@ -29,4 +29,7 @@
+ 	return true;
+ }
+ 
++
++#define NUM_FLOW_ACTIONS (FLOW_ACTION_MPLS_MANGLE + 1)
++
+ #endif
+Index: src/drivers/net/ethernet/mellanox/mlx5/core/diag/en_tc_tracepoint.c
+===================================================================
+--- src.orig/drivers/net/ethernet/mellanox/mlx5/core/diag/en_tc_tracepoint.c	2020-07-15 10:38:44.900954789 +0200
++++ src/drivers/net/ethernet/mellanox/mlx5/core/diag/en_tc_tracepoint.c	2020-07-15 10:38:50.070957254 +0200
+@@ -3,6 +3,7 @@
+ 
+ #define CREATE_TRACE_POINTS
+ #include "en_tc_tracepoint.h"
++#include "../backport_compat.h"
+ 
+ void put_ids_to_array(int *ids,
+ 		      const struct flow_action_entry *entries,

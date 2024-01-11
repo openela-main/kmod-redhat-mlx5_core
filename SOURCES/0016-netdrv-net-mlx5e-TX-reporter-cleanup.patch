@@ -1,0 +1,65 @@
+From a9b583f090f95ac9fe24ef0906c897f216014da3 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:51:36 -0400
+Subject: [PATCH 016/312] [netdrv] net/mlx5e: TX reporter cleanup
+
+Message-id: <20200510145245.10054-14-ahleihel@redhat.com>
+Patchwork-id: 306552
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 13/82] net/mlx5e: TX reporter cleanup
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc1
+
+commit c9e6c7209a9a26a0281b311c6880b9e2382ad635
+Author: Aya Levin <ayal@mellanox.com>
+Date:   Mon Jun 24 20:33:52 2019 +0300
+
+    net/mlx5e: TX reporter cleanup
+
+    Remove redundant include files.
+
+    Signed-off-by: Aya Levin <ayal@mellanox.com>
+    Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+    Acked-by: Jiri Pirko <jiri@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en/reporter.h    | 1 -
+ drivers/net/ethernet/mellanox/mlx5/core/en/reporter_tx.c | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/reporter.h b/drivers/net/ethernet/mellanox/mlx5/core/en/reporter.h
+index e78e92753d73..ed7a3881d2c5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/reporter.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/reporter.h
+@@ -4,7 +4,6 @@
+ #ifndef __MLX5E_EN_REPORTER_H
+ #define __MLX5E_EN_REPORTER_H
+ 
+-#include <linux/mlx5/driver.h>
+ #include "en.h"
+ 
+ int mlx5e_tx_reporter_create(struct mlx5e_priv *priv);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/reporter_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en/reporter_tx.c
+index d9116e77ef68..817c6ea7e349 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/reporter_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/reporter_tx.c
+@@ -1,7 +1,6 @@
+ /* SPDX-License-Identifier: GPL-2.0 */
+ /* Copyright (c) 2019 Mellanox Technologies. */
+ 
+-#include <net/devlink.h>
+ #include "reporter.h"
+ #include "lib/eq.h"
+ 
+-- 
+2.13.6
+

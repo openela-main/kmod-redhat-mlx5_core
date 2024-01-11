@@ -1,0 +1,72 @@
+From bf0023a9b4c8fea261dfcf28876ef882eff650ca Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:49:03 -0400
+Subject: [PATCH 241/312] [netdrv] net/mlx5: E-Switch, Add support for
+ offloading rules with no in_port
+
+Message-id: <20200519074934.6303-33-ahleihel@redhat.com>
+Patchwork-id: 310533
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 32/63] net/mlx5: E-Switch, Add support for offloading rules with no in_port
+Bugzilla: 1790219 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Bugzilla: http://bugzilla.redhat.com/1790219
+Upstream: v5.7-rc1
+
+commit 6fb0701a9cfa248f1c1e5dfde15c4d79bb1bdc69
+Author: Paul Blakey <paulb@mellanox.com>
+Date:   Thu Mar 12 12:23:11 2020 +0200
+
+    net/mlx5: E-Switch, Add support for offloading rules with no in_port
+
+    FTEs in global tables may match on packets from multiple in_ports.
+    Provide the capability to omit the in_port match condition.
+
+    Signed-off-by: Paul Blakey <paulb@mellanox.com>
+    Reviewed-by: Oz Shlomo <ozsh@mellanox.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h          | 1 +
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c | 4 +++-
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index e7de5e8e5605..ecf3d7157d4d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -428,6 +428,7 @@ enum {
+ enum {
+ 	MLX5_ESW_ATTR_FLAG_VLAN_HANDLED  = BIT(0),
+ 	MLX5_ESW_ATTR_FLAG_SLOW_PATH     = BIT(1),
++	MLX5_ESW_ATTR_FLAG_NO_IN_PORT    = BIT(2),
+ };
+ 
+ struct mlx5_esw_flow_attr {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index e8d9a0bd943a..3a6434ba2a58 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -388,7 +388,9 @@ mlx5_eswitch_add_offloaded_rule(struct mlx5_eswitch *esw,
+ 							attr->prio, 0);
+ 		else
+ 			fdb = attr->fdb;
+-		mlx5_eswitch_set_rule_source_port(esw, spec, attr);
++
++		if (!(attr->flags & MLX5_ESW_ATTR_FLAG_NO_IN_PORT))
++			mlx5_eswitch_set_rule_source_port(esw, spec, attr);
+ 	}
+ 	if (IS_ERR(fdb)) {
+ 		rule = ERR_CAST(fdb);
+-- 
+2.13.6
+

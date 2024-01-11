@@ -1,0 +1,91 @@
+From bbbbc3a6f49588fbf5e36c22542b2701921a467f Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:04:35 -0400
+Subject: [PATCH 111/312] [netdrv] net/mlx5e: TC, Stub out ipv6 tun create
+ header function
+
+Message-id: <20200510150452.10307-71-ahleihel@redhat.com>
+Patchwork-id: 306694
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 70/87] net/mlx5e: TC, Stub out ipv6 tun create header function
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5-rc1
+
+commit e689e998e102100bdf7991763d4c244704846f2d
+Author: Saeed Mahameed <saeedm@mellanox.com>
+Date:   Fri Nov 1 15:38:30 2019 -0700
+
+    net/mlx5e: TC, Stub out ipv6 tun create header function
+
+    Improve mlx5e_route_lookup_ipv6 function structure by avoiding #ifdef then
+    return -EOPNOTSUPP in the middle of the function code.
+
+    To do so, we stub out mlx5e_tc_tun_create_header_ipv6 which is the only
+    caller of this helper function to avoid calling it altogether
+    when ipv6 is compiled out, which should also cleanup some compiler
+    warnings of unused variables.
+
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+    Reviewed-by: Eli Cohen <eli@mellanox.com>
+    Reviewed-by: Roi Dayan <roid@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en/tc_tun.c | 4 ----
+ drivers/net/ethernet/mellanox/mlx5/core/en/tc_tun.h | 7 +++++++
+ 2 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/tc_tun.c b/drivers/net/ethernet/mellanox/mlx5/core/en/tc_tun.c
+index 92559a758d07..8a9791473f57 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/tc_tun.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/tc_tun.c
+@@ -141,7 +141,6 @@ static int mlx5e_route_lookup_ipv6(struct mlx5e_priv *priv,
+ 	struct dst_entry *dst;
+ 	struct neighbour *n;
+ 
+-#if IS_ENABLED(CONFIG_INET) && IS_ENABLED(CONFIG_IPV6)
+ 	int ret;
+ 
+ 	dst = ipv6_stub->ipv6_dst_lookup_flow(dev_net(mirred_dev), NULL, fl6,
+@@ -157,9 +156,6 @@ static int mlx5e_route_lookup_ipv6(struct mlx5e_priv *priv,
+ 		dst_release(dst);
+ 		return ret;
+ 	}
+-#else
+-	return -EOPNOTSUPP;
+-#endif
+ 
+ 	n = dst_neigh_lookup(dst, &fl6->daddr);
+ 	dst_release(dst);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/tc_tun.h b/drivers/net/ethernet/mellanox/mlx5/core/en/tc_tun.h
+index c362b9225dc2..6f9a78c85ffd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/tc_tun.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/tc_tun.h
+@@ -58,9 +58,16 @@ int mlx5e_tc_tun_create_header_ipv4(struct mlx5e_priv *priv,
+ 				    struct net_device *mirred_dev,
+ 				    struct mlx5e_encap_entry *e);
+ 
++#if IS_ENABLED(CONFIG_INET) && IS_ENABLED(CONFIG_IPV6)
+ int mlx5e_tc_tun_create_header_ipv6(struct mlx5e_priv *priv,
+ 				    struct net_device *mirred_dev,
+ 				    struct mlx5e_encap_entry *e);
++#else
++static inline int
++mlx5e_tc_tun_create_header_ipv6(struct mlx5e_priv *priv,
++				struct net_device *mirred_dev,
++				struct mlx5e_encap_entry *e) { return -EOPNOTSUPP; }
++#endif
+ 
+ bool mlx5e_tc_tun_device_to_offload(struct mlx5e_priv *priv,
+ 				    struct net_device *netdev);
+-- 
+2.13.6
+

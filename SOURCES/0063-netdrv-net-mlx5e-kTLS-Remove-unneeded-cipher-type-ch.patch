@@ -1,0 +1,66 @@
+From d84c54a3976bc805815e5a4a85f711f483ab3157 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:52:38 -0400
+Subject: [PATCH 063/312] [netdrv] net/mlx5e: kTLS, Remove unneeded cipher type
+ checks
+
+Message-id: <20200510145245.10054-76-ahleihel@redhat.com>
+Patchwork-id: 306617
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 75/82] net/mlx5e: kTLS, Remove unneeded cipher type checks
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc6
+
+commit ecdc65a3ec5d45725355479d63c23a20f4582104
+Author: Tariq Toukan <tariqt@mellanox.com>
+Date:   Sun Oct 6 18:25:17 2019 +0300
+
+    net/mlx5e: kTLS, Remove unneeded cipher type checks
+
+    Cipher type is checked upon connection addition.
+    No need to recheck it per every TX resync invocation.
+
+    Fixes: d2ead1f360e8 ("net/mlx5e: Add kTLS TX HW offload support")
+    Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+    Reviewed-by: Eran Ben Elisha <eranbe@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c
+index e10b0bb696da..1bfeb558ff78 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c
+@@ -31,9 +31,6 @@ fill_static_params_ctx(void *ctx, struct mlx5e_ktls_offload_context_tx *priv_tx)
+ 	char *salt, *rec_seq;
+ 	u8 tls_version;
+ 
+-	if (WARN_ON(crypto_info->cipher_type != TLS_CIPHER_AES_GCM_128))
+-		return;
+-
+ 	info = (struct tls12_crypto_info_aes_gcm_128 *)crypto_info;
+ 	EXTRACT_INFO_FIELDS;
+ 
+@@ -243,9 +240,6 @@ tx_post_resync_params(struct mlx5e_txqsq *sq,
+ 	u16 rec_seq_sz;
+ 	char *rec_seq;
+ 
+-	if (WARN_ON(crypto_info->cipher_type != TLS_CIPHER_AES_GCM_128))
+-		return;
+-
+ 	info = (struct tls12_crypto_info_aes_gcm_128 *)crypto_info;
+ 	rec_seq = info->rec_seq;
+ 	rec_seq_sz = sizeof(info->rec_seq);
+-- 
+2.13.6
+

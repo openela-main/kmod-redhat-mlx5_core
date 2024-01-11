@@ -1,0 +1,56 @@
+From 8f5565930abea792ddc7c4cff6642a7137a48738 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:48:43 -0400
+Subject: [PATCH 306/312] [include] net/mlx5: HW bit for goto chain offload
+ support
+
+Message-id: <20200519074934.6303-13-ahleihel@redhat.com>
+Patchwork-id: 310521
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 12/63] net/mlx5: HW bit for goto chain offload support
+Bugzilla: 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Upstream: v5.7-rc1
+
+commit e0ebd8eb36ed850a22a9a0ca83edc4a40ad67c16
+Author: Eli Cohen <eli@mellanox.com>
+Date:   Mon Mar 2 16:15:22 2020 -0800
+
+    net/mlx5: HW bit for goto chain offload support
+
+    Add the HW bit definition indecating goto chain offload support.
+
+    Signed-off-by: Eli Cohen <eli@mellanox.com>
+    Reviewed-by: Roi Dayan <roid@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ include/linux/mlx5/mlx5_ifc.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index a8adb6e7d1fd..989a4d3d8034 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -414,7 +414,8 @@ struct mlx5_ifc_flow_table_prop_layout_bits {
+ 	u8         reserved_at_16[0x1];
+ 	u8	   table_miss_action_domain[0x1];
+ 	u8         termination_table[0x1];
+-	u8         reserved_at_19[0x7];
++	u8         reformat_and_fwd_to_table[0x1];
++	u8         reserved_at_1a[0x6];
+ 	u8         reserved_at_20[0x2];
+ 	u8         log_max_ft_size[0x6];
+ 	u8         log_max_modify_header_context[0x8];
+-- 
+2.13.6
+

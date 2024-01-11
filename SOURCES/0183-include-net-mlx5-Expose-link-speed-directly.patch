@@ -1,0 +1,52 @@
+From f9b352e93da1f7bd57411f597aecf0c1e1231404 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:55 -0400
+Subject: [PATCH 183/312] [include] net/mlx5: Expose link speed directly
+
+Message-id: <20200512105530.4207-90-ahleihel@redhat.com>
+Patchwork-id: 306961
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 089/124] net/mlx5: Expose link speed directly
+Bugzilla: 1831133 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Bugzilla: http://bugzilla.redhat.com/1831133
+Upstream: v5.7-rc1
+
+commit dc392fc56f39a00a46d6db2d150571ccafe99734
+Author: Mark Bloch <markb@mellanox.com>
+Date:   Mon Mar 2 16:15:21 2020 -0800
+
+    net/mlx5: Expose link speed directly
+
+    Expose port rate as part of the port speed register fields.
+
+    Signed-off-by: Mark Bloch <markb@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ include/linux/mlx5/mlx5_ifc.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index cfe89228ca78..a8adb6e7d1fd 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -8292,7 +8292,8 @@ struct mlx5_ifc_ptys_reg_bits {
+ 	u8         proto_mask[0x3];
+ 
+ 	u8         an_status[0x4];
+-	u8         reserved_at_24[0x1c];
++	u8         reserved_at_24[0xc];
++	u8         data_rate_oper[0x10];
+ 
+ 	u8         ext_eth_proto_capability[0x20];
+ 
+-- 
+2.13.6
+

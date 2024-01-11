@@ -1,0 +1,55 @@
+From c9729182a9808a78e34f42701efd067c13d4e75e Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Mon, 1 Jun 2020 15:40:47 -0400
+Subject: [PATCH 294/312] [netdrv] net/mlx5: DR: Fix cast to restricted __be32
+
+Message-id: <20200601154102.25980-25-ahleihel@redhat.com>
+Patchwork-id: 315728
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1842258 24/39] net/mlx5: DR: Fix cast to restricted __be32
+Bugzilla: 1842258
+RH-Acked-by: Honggang Li <honli@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1842258
+Upstream: git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git , branch: master
+
+commit c2ba2c2287698bac36bf71e5c4f3be423371bee0
+Author: Saeed Mahameed <saeedm@mellanox.com>
+Date:   Thu May 28 01:11:37 2020 -0700
+
+    net/mlx5: DR: Fix cast to restricted __be32
+
+    raw_ip actual type is __be32 and not u32.
+    Fix that and get rid of the warning.
+
+    drivers/net/ethernet/mellanox/mlx5/core/steering/dr_ste.c:906:31:
+    warning: cast to restricted __be32
+
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+    Reviewed-by: Mark Bloch <markb@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/steering/dr_ste.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_ste.c b/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_ste.c
+index c0e3a1e7389d..e13ac84b56c6 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_ste.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_ste.c
+@@ -869,7 +869,7 @@ static void dr_ste_copy_mask_misc(char *mask, struct mlx5dr_match_misc *spec)
+ 
+ static void dr_ste_copy_mask_spec(char *mask, struct mlx5dr_match_spec *spec)
+ {
+-	u32 raw_ip[4];
++	__be32 raw_ip[4];
+ 
+ 	spec->smac_47_16 = MLX5_GET(fte_match_set_lyr_2_4, mask, smac_47_16);
+ 
+-- 
+2.13.6
+

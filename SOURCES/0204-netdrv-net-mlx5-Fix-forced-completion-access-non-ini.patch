@@ -1,0 +1,68 @@
+From 531a5454501692236d41d7fbf7932a4b66340b2f Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:55:21 -0400
+Subject: [PATCH 204/312] [netdrv] net/mlx5: Fix forced completion access non
+ initialized command entry
+
+Message-id: <20200512105530.4207-116-ahleihel@redhat.com>
+Patchwork-id: 306987
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 115/124] net/mlx5: Fix forced completion access non initialized command entry
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.7-rc5
+
+commit f3cb3cebe26ed4c8036adbd9448b372129d3c371
+Author: Moshe Shemesh <moshe@mellanox.com>
+Date:   Sun Jul 21 08:40:13 2019 +0300
+
+    net/mlx5: Fix forced completion access non initialized command entry
+
+    mlx5_cmd_flush() will trigger forced completions to all valid command
+    entries. Triggered by an asynch event such as fast teardown it can
+    happen at any stage of the command, including command initialization.
+    It will trigger forced completion and that can lead to completion on an
+    uninitialized command entry.
+
+    Setting MLX5_CMD_ENT_STATE_PENDING_COMP only after command entry is
+    initialized will ensure force completion is treated only if command
+    entry is initialized.
+
+    Fixes: 73dd3a4839c1 ("net/mlx5: Avoid using pending command interface slots")
+    Signed-off-by: Moshe Shemesh <moshe@mellanox.com>
+    Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index 71a52b890f38..59e38a6c4f52 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -888,7 +888,6 @@ static void cmd_work_handler(struct work_struct *work)
+ 	}
+ 
+ 	cmd->ent_arr[ent->idx] = ent;
+-	set_bit(MLX5_CMD_ENT_STATE_PENDING_COMP, &ent->state);
+ 	lay = get_inst(cmd, ent->idx);
+ 	ent->lay = lay;
+ 	memset(lay, 0, sizeof(*lay));
+@@ -910,6 +909,7 @@ static void cmd_work_handler(struct work_struct *work)
+ 
+ 	if (ent->callback)
+ 		schedule_delayed_work(&ent->cb_timeout_work, cb_timeout);
++	set_bit(MLX5_CMD_ENT_STATE_PENDING_COMP, &ent->state);
+ 
+ 	/* Skip sending command to fw if internal error */
+ 	if (pci_channel_offline(dev->pdev) ||
+-- 
+2.13.6
+

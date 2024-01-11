@@ -1,0 +1,24 @@
+Index: src/drivers/net/ethernet/mellanox/mlx5/core/backport_compat.h
+===================================================================
+--- src.orig/drivers/net/ethernet/mellanox/mlx5/core/backport_compat.h	2020-07-15 10:38:30.270947813 +0200
++++ src/drivers/net/ethernet/mellanox/mlx5/core/backport_compat.h	2020-07-15 10:38:30.289947822 +0200
+@@ -14,4 +14,7 @@
+         return address + offset;
+ }
+ 
++
++#define DEVLINK_PORT_FLAVOUR_VIRTUAL DEVLINK_PORT_FLAVOUR_PHYSICAL
++
+ #endif
+Index: src/drivers/net/ethernet/mellanox/mlx5/core/en/devlink.c
+===================================================================
+--- src.orig/drivers/net/ethernet/mellanox/mlx5/core/en/devlink.c	2020-07-15 10:38:29.905947639 +0200
++++ src/drivers/net/ethernet/mellanox/mlx5/core/en/devlink.c	2020-07-15 10:38:30.290947823 +0200
+@@ -2,6 +2,7 @@
+ /* Copyright (c) 2020, Mellanox Technologies inc.  All rights reserved. */
+ 
+ #include "en/devlink.h"
++#include "../backport_compat.h"
+ 
+ int mlx5e_devlink_port_register(struct mlx5e_priv *priv)
+ {

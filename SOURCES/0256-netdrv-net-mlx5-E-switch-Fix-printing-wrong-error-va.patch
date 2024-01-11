@@ -1,0 +1,62 @@
+From e4a7cf3c9eae834598d894f2335a408408c03989 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:49:18 -0400
+Subject: [PATCH 256/312] [netdrv] net/mlx5: E-switch, Fix printing wrong error
+ value
+
+Message-id: <20200519074934.6303-48-ahleihel@redhat.com>
+Patchwork-id: 310550
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 47/63] net/mlx5: E-switch, Fix printing wrong error value
+Bugzilla: 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Upstream: v5.7-rc5
+
+commit e9864539053ae15c2d6475833f62d7383f9271ce
+Author: Parav Pandit <parav@mellanox.com>
+Date:   Mon Apr 20 04:32:48 2020 -0500
+
+    net/mlx5: E-switch, Fix printing wrong error value
+
+    When mlx5_modify_header_alloc() fails, instead of printing the error
+    value returned, current error log prints 0.
+
+    Fix by printing correct error value returned by
+    mlx5_modify_header_alloc().
+
+    Fixes: 6724e66b90ee ("net/mlx5: E-Switch, Get reg_c1 value on miss")
+    Signed-off-by: Parav Pandit <parav@mellanox.com>
+    Reviewed-by: Roi Dayan <roid@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 0c49033a3e73..82905834ddb2 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -1513,9 +1513,9 @@ static int esw_create_restore_table(struct mlx5_eswitch *esw)
+ 					   MLX5_FLOW_NAMESPACE_KERNEL, 1,
+ 					   modact);
+ 	if (IS_ERR(mod_hdr)) {
++		err = PTR_ERR(mod_hdr);
+ 		esw_warn(dev, "Failed to create restore mod header, err: %d\n",
+ 			 err);
+-		err = PTR_ERR(mod_hdr);
+ 		goto err_mod_hdr;
+ 	}
+ 
+-- 
+2.13.6
+

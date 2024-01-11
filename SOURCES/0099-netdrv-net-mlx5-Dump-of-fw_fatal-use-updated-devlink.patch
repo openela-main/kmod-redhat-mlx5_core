@@ -1,0 +1,86 @@
+From c3c632a540ceec478b466227dd94d1ff5be82e26 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:04:19 -0400
+Subject: [PATCH 099/312] [netdrv] net/mlx5: Dump of fw_fatal use updated
+ devlink binary interface
+
+Message-id: <20200510150452.10307-55-ahleihel@redhat.com>
+Patchwork-id: 306679
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 54/87] net/mlx5: Dump of fw_fatal use updated devlink binary interface
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5-rc1
+
+commit d4e82cf4df300368e8d271a2caf14611a5e176a6
+Author: Aya Levin <ayal@mellanox.com>
+Date:   Tue Nov 12 14:07:50 2019 +0200
+
+    net/mlx5: Dump of fw_fatal use updated devlink binary interface
+
+    Remove redundant code from fw_fatal reporter's dump callback. Use
+    updated devlink interface of binary fmsg pair which breaks the output
+    into chunks internally.
+
+    Signed-off-by: Aya Levin <ayal@mellanox.com>
+    Acked-by: Jiri Pirko <jiri@mellanox.com>
+    Acked-by: Saeed Mahameed <saeedm@mellanox.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/health.c | 18 +-----------------
+ 1 file changed, 1 insertion(+), 17 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/health.c b/drivers/net/ethernet/mellanox/mlx5/core/health.c
+index c07f3154437c..d6b0a4ef9daf 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/health.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/health.c
+@@ -552,7 +552,6 @@ mlx5_fw_fatal_reporter_recover(struct devlink_health_reporter *reporter,
+ 	return mlx5_health_try_recover(dev);
+ }
+ 
+-#define MLX5_CR_DUMP_CHUNK_SIZE 256
+ static int
+ mlx5_fw_fatal_reporter_dump(struct devlink_health_reporter *reporter,
+ 			    struct devlink_fmsg *fmsg, void *priv_ctx)
+@@ -560,8 +559,6 @@ mlx5_fw_fatal_reporter_dump(struct devlink_health_reporter *reporter,
+ 	struct mlx5_core_dev *dev = devlink_health_reporter_priv(reporter);
+ 	u32 crdump_size = dev->priv.health.crdump_size;
+ 	u32 *cr_data;
+-	u32 data_size;
+-	u32 offset;
+ 	int err;
+ 
+ 	if (!mlx5_core_is_pf(dev))
+@@ -582,20 +579,7 @@ mlx5_fw_fatal_reporter_dump(struct devlink_health_reporter *reporter,
+ 			goto free_data;
+ 	}
+ 
+-	err = devlink_fmsg_arr_pair_nest_start(fmsg, "crdump_data");
+-	if (err)
+-		goto free_data;
+-	for (offset = 0; offset < crdump_size; offset += data_size) {
+-		if (crdump_size - offset < MLX5_CR_DUMP_CHUNK_SIZE)
+-			data_size = crdump_size - offset;
+-		else
+-			data_size = MLX5_CR_DUMP_CHUNK_SIZE;
+-		err = devlink_fmsg_binary_put(fmsg, (char *)cr_data + offset,
+-					      data_size);
+-		if (err)
+-			goto free_data;
+-	}
+-	err = devlink_fmsg_arr_pair_nest_end(fmsg);
++	err = devlink_fmsg_binary_pair_put(fmsg, "crdump_data", cr_data, crdump_size);
+ 
+ free_data:
+ 	kvfree(cr_data);
+-- 
+2.13.6
+

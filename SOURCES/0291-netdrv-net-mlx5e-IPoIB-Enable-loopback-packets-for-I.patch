@@ -1,0 +1,183 @@
+From 03a1dd382c4e2dee654161b656f6ff2528e198aa Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Mon, 1 Jun 2020 15:40:44 -0400
+Subject: [PATCH 291/312] [netdrv] net/mlx5e: IPoIB, Enable loopback packets
+ for IPoIB interfaces
+
+Message-id: <20200601154102.25980-22-ahleihel@redhat.com>
+Patchwork-id: 315729
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1842258 21/39] net/mlx5e: IPoIB, Enable loopback packets for IPoIB interfaces
+Bugzilla: 1842258
+RH-Acked-by: Honggang Li <honli@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1842258
+Upstream: git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git , branch: master
+
+commit 80639b199c9ca87444da218ba0e7511946452dd4
+Author: Erez Shitrit <erezsh@mellanox.com>
+Date:   Sun May 3 13:01:37 2020 +0300
+
+    net/mlx5e: IPoIB, Enable loopback packets for IPoIB interfaces
+
+    Enable loopback of unicast and multicast traffic for IPoIB enhanced
+    mode.
+    This will allow interfaces with the same pkey to communicate between
+    them e.g cloned interfaces that located in different namespaces.
+
+    Signed-off-by: Erez Shitrit <erezsh@mellanox.com>
+    Reviewed-by: Alex Vesker <valex@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h               |  3 ++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_common.c        | 13 ++++++++++---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c          |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c      |  4 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c      |  7 ++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h      |  2 ++
+ drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib_vlan.c |  2 +-
+ 7 files changed, 24 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index ab0985099444..9832ac9a55dc 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -1097,7 +1097,8 @@ void mlx5e_destroy_tir(struct mlx5_core_dev *mdev,
+ 		       struct mlx5e_tir *tir);
+ int mlx5e_create_mdev_resources(struct mlx5_core_dev *mdev);
+ void mlx5e_destroy_mdev_resources(struct mlx5_core_dev *mdev);
+-int mlx5e_refresh_tirs(struct mlx5e_priv *priv, bool enable_uc_lb);
++int mlx5e_refresh_tirs(struct mlx5e_priv *priv, bool enable_uc_lb,
++		       bool enable_mc_lb);
+ 
+ /* common netdev helpers */
+ void mlx5e_create_q_counters(struct mlx5e_priv *priv);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_common.c b/drivers/net/ethernet/mellanox/mlx5/core/en_common.c
+index f7890e0ce96c..03ca68708f1a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_common.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_common.c
+@@ -142,10 +142,12 @@ void mlx5e_destroy_mdev_resources(struct mlx5_core_dev *mdev)
+ 	memset(res, 0, sizeof(*res));
+ }
+ 
+-int mlx5e_refresh_tirs(struct mlx5e_priv *priv, bool enable_uc_lb)
++int mlx5e_refresh_tirs(struct mlx5e_priv *priv, bool enable_uc_lb,
++		       bool enable_mc_lb)
+ {
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+ 	struct mlx5e_tir *tir;
++	u8 lb_flags = 0;
+ 	int err  = 0;
+ 	u32 tirn = 0;
+ 	int inlen;
+@@ -159,8 +161,13 @@ int mlx5e_refresh_tirs(struct mlx5e_priv *priv, bool enable_uc_lb)
+ 	}
+ 
+ 	if (enable_uc_lb)
+-		MLX5_SET(modify_tir_in, in, ctx.self_lb_block,
+-			 MLX5_TIRC_SELF_LB_BLOCK_BLOCK_UNICAST);
++		lb_flags = MLX5_TIRC_SELF_LB_BLOCK_BLOCK_UNICAST;
++
++	if (enable_mc_lb)
++		lb_flags |= MLX5_TIRC_SELF_LB_BLOCK_BLOCK_MULTICAST;
++
++	if (lb_flags)
++		MLX5_SET(modify_tir_in, in, ctx.self_lb_block, lb_flags);
+ 
+ 	MLX5_SET(modify_tir_in, in, bitmask.self_lb_en, 1);
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 5c347f179c01..e0bd700634c8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -5235,7 +5235,7 @@ static void mlx5e_nic_disable(struct mlx5e_priv *priv)
+ 
+ int mlx5e_update_nic_rx(struct mlx5e_priv *priv)
+ {
+-	return mlx5e_refresh_tirs(priv, false);
++	return mlx5e_refresh_tirs(priv, false, false);
+ }
+ 
+ static const struct mlx5e_profile mlx5e_nic_profile = {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c b/drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c
+index bbff8d8ded76..46790216ce86 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c
+@@ -234,7 +234,7 @@ static int mlx5e_test_loopback_setup(struct mlx5e_priv *priv,
+ 			return err;
+ 	}
+ 
+-	err = mlx5e_refresh_tirs(priv, true);
++	err = mlx5e_refresh_tirs(priv, true, false);
+ 	if (err)
+ 		goto out;
+ 
+@@ -263,7 +263,7 @@ static void mlx5e_test_loopback_cleanup(struct mlx5e_priv *priv,
+ 		mlx5_nic_vport_update_local_lb(priv->mdev, false);
+ 
+ 	dev_remove_pack(&lbtp->pt);
+-	mlx5e_refresh_tirs(priv, false);
++	mlx5e_refresh_tirs(priv, false, false);
+ }
+ 
+ #define MLX5E_LB_VERIFY_TIMEOUT (msecs_to_jiffies(200))
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
+index 505cf6eeae25..e4253ba7a861 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
+@@ -256,6 +256,11 @@ void mlx5i_destroy_underlay_qp(struct mlx5_core_dev *mdev, struct mlx5_core_qp *
+ 	mlx5_core_destroy_qp(mdev, qp);
+ }
+ 
++int mlx5i_update_nic_rx(struct mlx5e_priv *priv)
++{
++	return mlx5e_refresh_tirs(priv, true, true);
++}
++
+ int mlx5i_create_tis(struct mlx5_core_dev *mdev, u32 underlay_qpn, u32 *tisn)
+ {
+ 	u32 in[MLX5_ST_SZ_DW(create_tis_in)] = {};
+@@ -450,7 +455,7 @@ static const struct mlx5e_profile mlx5i_nic_profile = {
+ 	.cleanup_rx	   = mlx5i_cleanup_rx,
+ 	.enable		   = NULL, /* mlx5i_enable */
+ 	.disable	   = NULL, /* mlx5i_disable */
+-	.update_rx	   = mlx5e_update_nic_rx,
++	.update_rx	   = mlx5i_update_nic_rx,
+ 	.update_stats	   = NULL, /* mlx5i_update_stats */
+ 	.update_carrier    = NULL, /* no HW update in IB link */
+ 	.rx_handlers.handle_rx_cqe       = mlx5i_handle_rx_cqe,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h
+index c87962cab921..99ad77ed1010 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h
+@@ -92,6 +92,8 @@ int mlx5i_init(struct mlx5_core_dev *mdev,
+ 	       void *ppriv);
+ void mlx5i_cleanup(struct mlx5e_priv *priv);
+ 
++int mlx5i_update_nic_rx(struct mlx5e_priv *priv);
++
+ /* Get child interface nic profile */
+ const struct mlx5e_profile *mlx5i_pkey_get_profile(void);
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib_vlan.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib_vlan.c
+index 96e64187c089..1a25ef296021 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib_vlan.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib_vlan.c
+@@ -350,7 +350,7 @@ static const struct mlx5e_profile mlx5i_pkey_nic_profile = {
+ 	.cleanup_rx	   = mlx5i_pkey_cleanup_rx,
+ 	.enable		   = NULL,
+ 	.disable	   = NULL,
+-	.update_rx	   = mlx5e_update_nic_rx,
++	.update_rx	   = mlx5i_update_nic_rx,
+ 	.update_stats	   = NULL,
+ 	.rx_handlers.handle_rx_cqe       = mlx5i_handle_rx_cqe,
+ 	.rx_handlers.handle_rx_cqe_mpwqe = NULL, /* Not supported */
+-- 
+2.13.6
+

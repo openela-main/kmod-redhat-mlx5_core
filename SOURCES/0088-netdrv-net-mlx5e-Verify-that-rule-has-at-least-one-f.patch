@@ -1,0 +1,65 @@
+From 0a412d2add9b9647bd09dd2eb19f0eb5d470ebdf Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:04:06 -0400
+Subject: [PATCH 088/312] [netdrv] net/mlx5e: Verify that rule has at least one
+ fwd/drop action
+
+Message-id: <20200510150452.10307-42-ahleihel@redhat.com>
+Patchwork-id: 306664
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 41/87] net/mlx5e: Verify that rule has at least one fwd/drop action
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5-rc1
+
+commit ae2741e2b6ce2bf1b656b1152c4ef147ff35b096
+Author: Vlad Buslov <vladbu@mellanox.com>
+Date:   Wed Sep 11 21:14:54 2019 +0300
+
+    net/mlx5e: Verify that rule has at least one fwd/drop action
+
+    Currently, mlx5 tc layer doesn't verify that rule has at least one forward
+    or drop action which leads to following firmware syndrome when user tries
+    to offload such action:
+
+    [ 1824.860501] mlx5_core 0000:81:00.0: mlx5_cmd_check:753:(pid 29458): SET_FLOW_TABLE_ENTRY(0x936) op_mod(0x0) failed, status bad parameter(0x3), syndrome (0x144b7a)
+
+    Add check at the end of parse_tc_fdb_actions() that verifies that resulting
+    attribute has action fwd or drop flag set.
+
+    Signed-off-by: Vlad Buslov <vladbu@mellanox.com>
+    Reviewed-by: Paul Blakey <paulb@mellanox.com>
+    Reviewed-by: Roi Dayan <roid@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index ece33ff718a4..b13e7996ad83 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -3446,6 +3446,12 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv,
+ 		attr->action |= MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
+ 	}
+ 
++	if (!(attr->action &
++	      (MLX5_FLOW_CONTEXT_ACTION_FWD_DEST | MLX5_FLOW_CONTEXT_ACTION_DROP))) {
++		NL_SET_ERR_MSG(extack, "Rule must have at least one forward/drop action");
++		return -EOPNOTSUPP;
++	}
++
+ 	if (attr->split_count > 0 && !mlx5_esw_has_fwd_fdb(priv->mdev)) {
+ 		NL_SET_ERR_MSG_MOD(extack,
+ 				   "current firmware doesn't support split rule for port mirroring");
+-- 
+2.13.6
+

@@ -1,0 +1,89 @@
+From 147ff36227e0ae4feefbe51315598cf96f01e3d8 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:04:24 -0400
+Subject: [PATCH 103/312] [netdrv] net/mlx5: Accumulate levels for chains prio
+ namespaces
+
+Message-id: <20200510150452.10307-60-ahleihel@redhat.com>
+Patchwork-id: 306683
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 59/87] net/mlx5: Accumulate levels for chains prio namespaces
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5-rc1
+
+commit 34b13cb3eaa5ad205f4497da6420262da4940b9e
+Author: Paul Blakey <paulb@mellanox.com>
+Date:   Tue Nov 12 00:34:27 2019 +0100
+
+    net/mlx5: Accumulate levels for chains prio namespaces
+
+    Tc chains are implemented by creating a chained prio steering type, and
+    inside it there is a namespace for each chain (FDB_TC_MAX_CHAINS). Each
+    of those has a list of priorities.
+
+    Currently, all namespaces in a prio start at the parent prio level.
+    But since we can jump from chain (namespace) to another chain in the
+    same prio, we need the levels for higher chains to be higher as well.
+    So we created unused prios to account for levels in previous namespaces.
+
+    Fix that by accumulating the namespaces levels if we are inside a chained
+    type prio, and removing the unused prios.
+
+    Fixes: 328edb499f99 ('net/mlx5: Split FDB fast path prio to multiple namespaces')
+    Signed-off-by: Paul Blakey <paulb@mellanox.com>
+    Reviewed-by: Mark Bloch <markb@mellanox.com>
+    Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c          | 10 +++++++++-
+ 2 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 9e59fb7ad68f..0f0d8decb04c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -952,7 +952,7 @@ esw_get_prio_table(struct mlx5_eswitch *esw, u32 chain, u16 prio, int level)
+ 		flags |= (MLX5_FLOW_TABLE_TUNNEL_EN_REFORMAT |
+ 			  MLX5_FLOW_TABLE_TUNNEL_EN_DECAP);
+ 
+-	table_prio = (chain * FDB_TC_MAX_PRIO) + prio - 1;
++	table_prio = prio - 1;
+ 
+ 	/* create earlier levels for correct fs_core lookup when
+ 	 * connecting tables
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index ce4774560c56..9411b17cdeb5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -2403,9 +2403,17 @@ static void set_prio_attrs_in_prio(struct fs_prio *prio, int acc_level)
+ 	int acc_level_ns = acc_level;
+ 
+ 	prio->start_level = acc_level;
+-	fs_for_each_ns(ns, prio)
++	fs_for_each_ns(ns, prio) {
+ 		/* This updates start_level and num_levels of ns's priority descendants */
+ 		acc_level_ns = set_prio_attrs_in_ns(ns, acc_level);
++
++		/* If this a prio with chains, and we can jump from one chain
++		 * (namepsace) to another, so we accumulate the levels
++		 */
++		if (prio->node.type == FS_TYPE_PRIO_CHAINS)
++			acc_level = acc_level_ns;
++	}
++
+ 	if (!prio->num_levels)
+ 		prio->num_levels = acc_level_ns - prio->start_level;
+ 	WARN_ON(prio->num_levels < acc_level_ns - prio->start_level);
+-- 
+2.13.6
+

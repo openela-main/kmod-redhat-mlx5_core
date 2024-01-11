@@ -1,0 +1,51 @@
+From 16bde132fef4e56fe26d945178b1675b6e4d08b4 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:52 -0400
+Subject: [PATCH 180/312] [netdrv] net/mlx5: sparse: warning: Using plain
+ integer as NULL pointer
+
+Message-id: <20200512105530.4207-87-ahleihel@redhat.com>
+Patchwork-id: 306958
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 086/124] net/mlx5: sparse: warning: Using plain integer as NULL pointer
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.7-rc1
+
+commit 586ee9e8a3b00757836787d91b4c369bc36d7928
+Author: Saeed Mahameed <saeedm@mellanox.com>
+Date:   Wed Jan 22 15:06:35 2020 -0800
+
+    net/mlx5: sparse: warning: Using plain integer as NULL pointer
+
+    Return NULL instead of 0.
+
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+    Reviewed-by: Moshe Shemesh <moshe@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/lib/dm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lib/dm.c b/drivers/net/ethernet/mellanox/mlx5/core/lib/dm.c
+index e065c2f68f5a..6cbccba56f70 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/lib/dm.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/lib/dm.c
+@@ -21,7 +21,7 @@ struct mlx5_dm *mlx5_dm_create(struct mlx5_core_dev *dev)
+ 	struct mlx5_dm *dm;
+ 
+ 	if (!(MLX5_CAP_GEN_64(dev, general_obj_types) & MLX5_GENERAL_OBJ_TYPES_CAP_SW_ICM))
+-		return 0;
++		return NULL;
+ 
+ 	dm = kzalloc(sizeof(*dm), GFP_KERNEL);
+ 	if (!dm)
+-- 
+2.13.6
+

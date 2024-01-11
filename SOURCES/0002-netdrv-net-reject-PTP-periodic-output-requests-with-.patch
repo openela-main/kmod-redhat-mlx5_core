@@ -1,0 +1,75 @@
+From 2c53f8c40495fbe39613f8cf3a800474846fa96b Mon Sep 17 00:00:00 2001
+From: Petr Oros <poros@redhat.com>
+Date: Mon, 24 Feb 2020 16:46:48 -0500
+Subject: [PATCH 002/312] [netdrv] net: reject PTP periodic output requests
+ with unsupported flags
+
+Message-id: <b9789c5e34985cfcd9226d3d80179cbbdd68abb3.1582559430.git.poros@redhat.com>
+Patchwork-id: 295286
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 net PATCH 03/14] net: reject PTP periodic output requests with unsupported flags
+Bugzilla: 1795192
+RH-Acked-by: Neil Horman <nhorman@redhat.com>
+RH-Acked-by: Prarit Bhargava <prarit@redhat.com>
+RH-Acked-by: Corinna Vinschen <vinschen@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/show_bug.cgi?id=1795192
+
+Conflicts: \
+- Unmerged path drivers/net/ethernet/microchip/lan743x_ptp.c
+
+Upstream commit(s):
+commit 7f9048f1df6f0c1c7a74a15c8b4ce033a753f274
+Author: Jacob Keller <jacob.e.keller@intel.com>
+Date:   Thu Nov 14 10:44:56 2019 -0800
+
+    net: reject PTP periodic output requests with unsupported flags
+
+    Commit 823eb2a3c4c7 ("PTP: add support for one-shot output") introduced
+    a new flag for the PTP periodic output request ioctl. This flag is not
+    currently supported by any driver.
+
+    Fix all drivers which implement the periodic output request ioctl to
+    explicitly reject any request with flags they do not understand. This
+    ensures that the driver does not accidentally misinterpret the
+    PTP_PEROUT_ONE_SHOT flag, or any new flag introduced in the future.
+
+    This is important for forward compatibility: if a new flag is
+    introduced, the driver should reject requests to enable the flag until
+    the driver has actually been modified to support the flag in question.
+
+    Cc: Felipe Balbi <felipe.balbi@linux.intel.com>
+    Cc: David S. Miller <davem@davemloft.net>
+    Cc: Christopher Hall <christopher.s.hall@intel.com>
+    Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+    Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+    Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+    Reviewed-by: Saeed Mahameed <saeedm@mellanox.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Signed-off-by: Petr Oros <poros@redhat.com>
+Signed-off-by: Timothy Redaelli <tredaelli@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/lib/clock.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lib/clock.c b/drivers/net/ethernet/mellanox/mlx5/core/lib/clock.c
+index 0059b290e095..cff6b60de304 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/lib/clock.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/lib/clock.c
+@@ -290,6 +290,10 @@ static int mlx5_perout_configure(struct ptp_clock_info *ptp,
+ 	if (!MLX5_PPS_CAP(mdev))
+ 		return -EOPNOTSUPP;
+ 
++	/* Reject requests with unsupported flags */
++	if (rq->perout.flags)
++		return -EOPNOTSUPP;
++
+ 	if (rq->perout.index >= clock->ptp_info.n_pins)
+ 		return -EINVAL;
+ 
+-- 
+2.13.6
+

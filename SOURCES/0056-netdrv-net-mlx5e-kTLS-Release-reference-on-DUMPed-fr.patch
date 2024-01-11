@@ -1,0 +1,156 @@
+From 0472c2b0a8bf58396dc7434fd8d96ce8f765f845 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:52:31 -0400
+Subject: [PATCH 056/312] [netdrv] net/mlx5e: kTLS, Release reference on DUMPed
+ fragments in shutdown flow
+
+Message-id: <20200510145245.10054-69-ahleihel@redhat.com>
+Patchwork-id: 306611
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 68/82] net/mlx5e: kTLS, Release reference on DUMPed fragments in shutdown flow
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc6
+
+commit 2c559361389b452ca23494080d0c65ab812706c1
+Author: Tariq Toukan <tariqt@mellanox.com>
+Date:   Wed Sep 18 13:45:38 2019 +0300
+
+    net/mlx5e: kTLS, Release reference on DUMPed fragments in shutdown flow
+
+    A call to kTLS completion handler was missing in the TXQSQ release
+    flow. Add it.
+
+    Fixes: d2ead1f360e8 ("net/mlx5e: Add kTLS TX HW offload support")
+    Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+    Reviewed-by: Eran Ben Elisha <eranbe@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ .../ethernet/mellanox/mlx5/core/en_accel/ktls.h    |  7 +++++-
+ .../ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c | 11 +++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    | 28 ++++++++++++----------
+ 3 files changed, 30 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls.h b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls.h
+index b7298f9ee3d3..c4c128908b6e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls.h
+@@ -86,7 +86,7 @@ struct sk_buff *mlx5e_ktls_handle_tx_skb(struct net_device *netdev,
+ 					 struct mlx5e_tx_wqe **wqe, u16 *pi);
+ void mlx5e_ktls_tx_handle_resync_dump_comp(struct mlx5e_txqsq *sq,
+ 					   struct mlx5e_tx_wqe_info *wi,
+-					   struct mlx5e_sq_dma *dma);
++					   u32 *dma_fifo_cc);
+ 
+ #else
+ 
+@@ -94,6 +94,11 @@ static inline void mlx5e_ktls_build_netdev(struct mlx5e_priv *priv)
+ {
+ }
+ 
++static inline void
++mlx5e_ktls_tx_handle_resync_dump_comp(struct mlx5e_txqsq *sq,
++				      struct mlx5e_tx_wqe_info *wi,
++				      u32 *dma_fifo_cc) {}
++
+ #endif
+ 
+ #endif /* __MLX5E_TLS_H__ */
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c
+index d195366461c9..90c6ce530a18 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c
+@@ -303,9 +303,16 @@ tx_post_resync_dump(struct mlx5e_txqsq *sq, skb_frag_t *frag, u32 tisn, bool fir
+ 
+ void mlx5e_ktls_tx_handle_resync_dump_comp(struct mlx5e_txqsq *sq,
+ 					   struct mlx5e_tx_wqe_info *wi,
+-					   struct mlx5e_sq_dma *dma)
++					   u32 *dma_fifo_cc)
+ {
+-	struct mlx5e_sq_stats *stats = sq->stats;
++	struct mlx5e_sq_stats *stats;
++	struct mlx5e_sq_dma *dma;
++
++	if (!wi->resync_dump_frag)
++		return;
++
++	dma = mlx5e_dma_get(sq, (*dma_fifo_cc)++);
++	stats = sq->stats;
+ 
+ 	mlx5e_tx_dma_unmap(sq->pdev, dma);
+ 	__skb_frag_unref(wi->resync_dump_frag);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index 9cc22b62d73d..001752ace7f0 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -483,14 +483,7 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq, int napi_budget)
+ 			skb = wi->skb;
+ 
+ 			if (unlikely(!skb)) {
+-#ifdef CONFIG_MLX5_EN_TLS
+-				if (wi->resync_dump_frag) {
+-					struct mlx5e_sq_dma *dma =
+-						mlx5e_dma_get(sq, dma_fifo_cc++);
+-
+-					mlx5e_ktls_tx_handle_resync_dump_comp(sq, wi, dma);
+-				}
+-#endif
++				mlx5e_ktls_tx_handle_resync_dump_comp(sq, wi, &dma_fifo_cc);
+ 				sqcc += wi->num_wqebbs;
+ 				continue;
+ 			}
+@@ -546,29 +539,38 @@ void mlx5e_free_txqsq_descs(struct mlx5e_txqsq *sq)
+ {
+ 	struct mlx5e_tx_wqe_info *wi;
+ 	struct sk_buff *skb;
++	u32 dma_fifo_cc;
++	u16 sqcc;
+ 	u16 ci;
+ 	int i;
+ 
+-	while (sq->cc != sq->pc) {
+-		ci = mlx5_wq_cyc_ctr2ix(&sq->wq, sq->cc);
++	sqcc = sq->cc;
++	dma_fifo_cc = sq->dma_fifo_cc;
++
++	while (sqcc != sq->pc) {
++		ci = mlx5_wq_cyc_ctr2ix(&sq->wq, sqcc);
+ 		wi = &sq->db.wqe_info[ci];
+ 		skb = wi->skb;
+ 
+ 		if (!skb) {
+-			sq->cc += wi->num_wqebbs;
++			mlx5e_ktls_tx_handle_resync_dump_comp(sq, wi, &dma_fifo_cc);
++			sqcc += wi->num_wqebbs;
+ 			continue;
+ 		}
+ 
+ 		for (i = 0; i < wi->num_dma; i++) {
+ 			struct mlx5e_sq_dma *dma =
+-				mlx5e_dma_get(sq, sq->dma_fifo_cc++);
++				mlx5e_dma_get(sq, dma_fifo_cc++);
+ 
+ 			mlx5e_tx_dma_unmap(sq->pdev, dma);
+ 		}
+ 
+ 		dev_kfree_skb_any(skb);
+-		sq->cc += wi->num_wqebbs;
++		sqcc += wi->num_wqebbs;
+ 	}
++
++	sq->dma_fifo_cc = dma_fifo_cc;
++	sq->cc = sqcc;
+ }
+ 
+ #ifdef CONFIG_MLX5_CORE_IPOIB
+-- 
+2.13.6
+

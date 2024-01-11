@@ -1,0 +1,95 @@
+From 1d9d347b493116ebe3b0817174f1734cdd66fc2a Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:04:23 -0400
+Subject: [PATCH 102/312] [netdrv] net/mlx5: Define fdb tc levels per prio
+
+Message-id: <20200510150452.10307-59-ahleihel@redhat.com>
+Patchwork-id: 306681
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 58/87] net/mlx5: Define fdb tc levels per prio
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5-rc1
+
+commit 4db7b98e943225dc2a7435811767e44f63640462
+Author: Paul Blakey <paulb@mellanox.com>
+Date:   Tue Nov 12 00:34:26 2019 +0100
+
+    net/mlx5: Define fdb tc levels per prio
+
+    Define FDB_TC_LEVELS_PER_PRIO instead of magic number 2.
+    This is the number of levels used by each tc prio table in the fdb.
+
+    Signed-off-by: Paul Blakey <paulb@mellanox.com>
+    Reviewed-by: Mark Bloch <markb@mellanox.com>
+    Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h | 4 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 6 ++++--
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index f18fad32a20c..e2c1555a6a73 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -46,6 +46,7 @@
+ #define FDB_TC_MAX_CHAIN 3
+ #define FDB_TC_SLOW_PATH_CHAIN (FDB_TC_MAX_CHAIN + 1)
+ #define FDB_TC_MAX_PRIO 16
++#define FDB_TC_LEVELS_PER_PRIO 2
+ 
+ #ifdef CONFIG_MLX5_ESWITCH
+ 
+@@ -165,7 +166,6 @@ enum offloads_fdb_flags {
+ 
+ extern const unsigned int ESW_POOLS[4];
+ 
+-#define PRIO_LEVELS 2
+ struct mlx5_eswitch_fdb {
+ 	union {
+ 		struct legacy_fdb {
+@@ -192,7 +192,7 @@ struct mlx5_eswitch_fdb {
+ 			struct {
+ 				struct mlx5_flow_table *fdb;
+ 				u32 num_rules;
+-			} fdb_prio[FDB_TC_MAX_CHAIN + 1][FDB_TC_MAX_PRIO + 1][PRIO_LEVELS];
++			} fdb_prio[FDB_TC_MAX_CHAIN + 1][FDB_TC_MAX_PRIO + 1][FDB_TC_LEVELS_PER_PRIO];
+ 			/* Protects fdb_prio table */
+ 			struct mutex fdb_prio_lock;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index 56faf8e6e9ae..ce4774560c56 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -2620,7 +2620,8 @@ static int init_fdb_root_ns(struct mlx5_flow_steering *steering)
+ 		goto out_err;
+ 	}
+ 
+-	levels = 2 * FDB_TC_MAX_PRIO * (FDB_TC_MAX_CHAIN + 1);
++	levels = FDB_TC_LEVELS_PER_PRIO *
++		 FDB_TC_MAX_PRIO * (FDB_TC_MAX_CHAIN + 1);
+ 	maj_prio = fs_create_prio_chained(&steering->fdb_root_ns->ns,
+ 					  FDB_FAST_PATH,
+ 					  levels);
+@@ -2637,7 +2638,8 @@ static int init_fdb_root_ns(struct mlx5_flow_steering *steering)
+ 		}
+ 
+ 		for (prio = 0; prio < FDB_TC_MAX_PRIO * (chain + 1); prio++) {
+-			min_prio = fs_create_prio(ns, prio, 2);
++			min_prio = fs_create_prio(ns, prio,
++						  FDB_TC_LEVELS_PER_PRIO);
+ 			if (IS_ERR(min_prio)) {
+ 				err = PTR_ERR(min_prio);
+ 				goto out_err;
+-- 
+2.13.6
+

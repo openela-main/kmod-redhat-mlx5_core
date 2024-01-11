@@ -1,0 +1,123 @@
+From e537fcf35c72c352a3428f5ec0978fd66002f11f Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:03:52 -0400
+Subject: [PATCH 075/312] [netdrv] net/mlx5: Introduce and use
+ mlx5_esw_is_manager_vport()
+
+Message-id: <20200510150452.10307-28-ahleihel@redhat.com>
+Patchwork-id: 306652
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 27/87] net/mlx5: Introduce and use mlx5_esw_is_manager_vport()
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5-rc1
+
+commit ea2300e02a71207b11111a44cbe7185a94f78a72
+Author: Parav Pandit <parav@mellanox.com>
+Date:   Mon Oct 28 23:35:05 2019 +0000
+
+    net/mlx5: Introduce and use mlx5_esw_is_manager_vport()
+
+    Currently esw_enable_vport() does vport check for zero to enable drop
+    counters regardless of execution on ECPF/PF.
+    While esw_disable_vport() considers such scenario.
+
+    To keep consistency across code for checking for manager_vport,
+    introduce and use mlx5_esw_is_manager_vport() to check if a specified
+    vport is eswitch manager vport or not.
+
+    Signed-off-by: Parav Pandit <parav@mellanox.com>
+    Reviewed-by: Vu Pham <vuhuong@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 13 +++++++------
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h |  6 ++++++
+ 2 files changed, 13 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 773246f8e9c4..76e2d5cba48b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -496,7 +496,7 @@ static int esw_add_uc_addr(struct mlx5_eswitch *esw, struct vport_addr *vaddr)
+ 	/* Skip mlx5_mpfs_add_mac for eswitch_managers,
+ 	 * it is already done by its netdev in mlx5e_execute_l2_action
+ 	 */
+-	if (esw->manager_vport == vport)
++	if (mlx5_esw_is_manager_vport(esw, vport))
+ 		goto fdb_add;
+ 
+ 	err = mlx5_mpfs_add_mac(esw->dev, mac);
+@@ -528,7 +528,7 @@ static int esw_del_uc_addr(struct mlx5_eswitch *esw, struct vport_addr *vaddr)
+ 	/* Skip mlx5_mpfs_del_mac for eswitch managers,
+ 	 * it is already done by its netdev in mlx5e_execute_l2_action
+ 	 */
+-	if (!vaddr->mpfs || esw->manager_vport == vport)
++	if (!vaddr->mpfs || mlx5_esw_is_manager_vport(esw, vport))
+ 		goto fdb_del;
+ 
+ 	err = mlx5_mpfs_del_mac(esw->dev, mac);
+@@ -1634,7 +1634,7 @@ static void esw_apply_vport_conf(struct mlx5_eswitch *esw,
+ 	u16 vport_num = vport->vport;
+ 	int flags;
+ 
+-	if (esw->manager_vport == vport_num)
++	if (mlx5_esw_is_manager_vport(esw, vport_num))
+ 		return;
+ 
+ 	mlx5_modify_vport_admin_state(esw->dev,
+@@ -1708,7 +1708,8 @@ static void esw_enable_vport(struct mlx5_eswitch *esw, struct mlx5_vport *vport,
+ 	esw_debug(esw->dev, "Enabling VPORT(%d)\n", vport_num);
+ 
+ 	/* Create steering drop counters for ingress and egress ACLs */
+-	if (vport_num && esw->mode == MLX5_ESWITCH_LEGACY)
++	if (!mlx5_esw_is_manager_vport(esw, vport_num) &&
++	    esw->mode == MLX5_ESWITCH_LEGACY)
+ 		esw_vport_create_drop_counters(vport);
+ 
+ 	/* Restore old vport configuration */
+@@ -1726,7 +1727,7 @@ static void esw_enable_vport(struct mlx5_eswitch *esw, struct mlx5_vport *vport,
+ 	/* Esw manager is trusted by default. Host PF (vport 0) is trusted as well
+ 	 * in smartNIC as it's a vport group manager.
+ 	 */
+-	if (esw->manager_vport == vport_num ||
++	if (mlx5_esw_is_manager_vport(esw, vport_num) ||
+ 	    (!vport_num && mlx5_core_is_ecpf(esw->dev)))
+ 		vport->info.trusted = true;
+ 
+@@ -1761,7 +1762,7 @@ static void esw_disable_vport(struct mlx5_eswitch *esw,
+ 	esw_vport_change_handle_locked(vport);
+ 	vport->enabled_events = 0;
+ 	esw_vport_disable_qos(esw, vport);
+-	if (esw->manager_vport != vport_num &&
++	if (!mlx5_esw_is_manager_vport(esw, vport_num) &&
+ 	    esw->mode == MLX5_ESWITCH_LEGACY) {
+ 		mlx5_modify_vport_admin_state(esw->dev,
+ 					      MLX5_VPORT_STATE_OP_MOD_ESW_VPORT,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index 0cba334270d9..a90af41d8220 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -468,6 +468,12 @@ static inline u16 mlx5_eswitch_manager_vport(struct mlx5_core_dev *dev)
+ /* TODO: This mlx5e_tc function shouldn't be called by eswitch */
+ void mlx5e_tc_clean_fdb_peer_flows(struct mlx5_eswitch *esw);
+ 
++static inline bool
++mlx5_esw_is_manager_vport(const struct mlx5_eswitch *esw, u16 vport_num)
++{
++	return esw->manager_vport == vport_num;
++}
++
+ static inline u16 mlx5_eswitch_first_host_vport_num(struct mlx5_core_dev *dev)
+ {
+ 	return mlx5_core_is_ecpf_esw_manager(dev) ?
+-- 
+2.13.6
+

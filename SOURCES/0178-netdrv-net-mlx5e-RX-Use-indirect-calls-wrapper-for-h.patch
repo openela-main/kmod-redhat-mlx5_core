@@ -1,0 +1,64 @@
+From 8a307f6cfd32ede46f9a648fc3e1c0cfc9a442f6 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:50 -0400
+Subject: [PATCH 178/312] [netdrv] net/mlx5e: RX, Use indirect calls wrapper
+ for handling compressed completions
+
+Message-id: <20200512105530.4207-85-ahleihel@redhat.com>
+Patchwork-id: 306956
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 084/124] net/mlx5e: RX, Use indirect calls wrapper for handling compressed completions
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.7-rc1
+
+commit e9c1d2539dc04caae0bf4ee96a7a8bdb9df8ea0d
+Author: Tariq Toukan <tariqt@mellanox.com>
+Date:   Mon Jan 27 13:34:31 2020 +0200
+
+    net/mlx5e: RX, Use indirect calls wrapper for handling compressed completions
+
+    We can avoid an indirect call per compressed completion wrapping the
+    completion handling call with the appropriate helper.
+
+    Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+    Reviewed-by: Maxim Mikityanskiy <maximmi@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index 1f42e88f4ec4..b2109bbcb985 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -159,7 +159,8 @@ static inline u32 mlx5e_decompress_cqes_cont(struct mlx5e_rq *rq,
+ 			mlx5e_read_mini_arr_slot(wq, cqd, cqcc);
+ 
+ 		mlx5e_decompress_cqe_no_hash(rq, wq, cqcc);
+-		rq->handle_rx_cqe(rq, &cqd->title);
++		INDIRECT_CALL_2(rq->handle_rx_cqe, mlx5e_handle_rx_cqe_mpwrq,
++				mlx5e_handle_rx_cqe, rq, &cqd->title);
+ 	}
+ 	mlx5e_cqes_update_owner(wq, cqcc - wq->cc);
+ 	wq->cc = cqcc;
+@@ -179,7 +180,8 @@ static inline u32 mlx5e_decompress_cqes_start(struct mlx5e_rq *rq,
+ 	mlx5e_read_title_slot(rq, wq, cc);
+ 	mlx5e_read_mini_arr_slot(wq, cqd, cc + 1);
+ 	mlx5e_decompress_cqe(rq, wq, cc);
+-	rq->handle_rx_cqe(rq, &cqd->title);
++	INDIRECT_CALL_2(rq->handle_rx_cqe, mlx5e_handle_rx_cqe_mpwrq,
++			mlx5e_handle_rx_cqe, rq, &cqd->title);
+ 	cqd->mini_arr_idx++;
+ 
+ 	return mlx5e_decompress_cqes_cont(rq, wq, 1, budget_rem) - 1;
+-- 
+2.13.6
+

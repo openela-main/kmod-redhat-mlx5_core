@@ -1,0 +1,68 @@
+From b6b835feb5f12a271d398d07385a6a7a71f32550 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:26 -0400
+Subject: [PATCH 157/312] [netdrv] net/mlx5: DR, Fix postsend actions write
+ length
+
+Message-id: <20200512105530.4207-61-ahleihel@redhat.com>
+Patchwork-id: 306933
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 060/124] net/mlx5: DR, Fix postsend actions write length
+Bugzilla: 1789384 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Bugzilla: http://bugzilla.redhat.com/1789384
+Upstream: v5.6
+
+commit 692b0399a22530b2de8490bea75a7d20d59391d0
+Author: Hamdan Igbaria <hamdani@mellanox.com>
+Date:   Mon Feb 24 14:41:29 2020 +0200
+
+    net/mlx5: DR, Fix postsend actions write length
+
+    Fix the send info write length to be (actions x action) size in bytes.
+
+    Fixes: 297cccebdc5a ("net/mlx5: DR, Expose an internal API to issue RDMA operations")
+    Signed-off-by: Hamdan Igbaria <hamdani@mellanox.com>
+    Reviewed-by: Alex Vesker <valex@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/steering/dr_action.c | 1 -
+ drivers/net/ethernet/mellanox/mlx5/core/steering/dr_send.c   | 3 ++-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_action.c b/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_action.c
+index 6dec2a550a10..2d93228ff633 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_action.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_action.c
+@@ -933,7 +933,6 @@ static int dr_actions_l2_rewrite(struct mlx5dr_domain *dmn,
+ 
+ 	action->rewrite.data = (void *)ops;
+ 	action->rewrite.num_of_actions = i;
+-	action->rewrite.chunk->byte_size = i * sizeof(*ops);
+ 
+ 	ret = mlx5dr_send_postsend_action(dmn, action);
+ 	if (ret) {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_send.c b/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_send.c
+index c7f10d4f8f8d..095ec7b1399d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_send.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_send.c
+@@ -558,7 +558,8 @@ int mlx5dr_send_postsend_action(struct mlx5dr_domain *dmn,
+ 	int ret;
+ 
+ 	send_info.write.addr = (uintptr_t)action->rewrite.data;
+-	send_info.write.length = action->rewrite.chunk->byte_size;
++	send_info.write.length = action->rewrite.num_of_actions *
++				 DR_MODIFY_ACTION_SIZE;
+ 	send_info.write.lkey = 0;
+ 	send_info.remote_addr = action->rewrite.chunk->mr_addr;
+ 	send_info.rkey = action->rewrite.chunk->rkey;
+-- 
+2.13.6
+

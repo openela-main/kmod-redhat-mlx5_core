@@ -1,0 +1,63 @@
+From 97090ed92050b2a62a9c572b895dba75ce9e7fa2 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:04:05 -0400
+Subject: [PATCH 087/312] [netdrv] net/mlx5: Remove unneeded variable in
+ mlx5_unload_one
+
+Message-id: <20200510150452.10307-41-ahleihel@redhat.com>
+Patchwork-id: 306665
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 40/87] net/mlx5: Remove unneeded variable in mlx5_unload_one
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5-rc1
+
+commit 32680da7103439095ba8c2dbe30c3e4d0e05e4c2
+Author: zhong jiang <zhongjiang@huawei.com>
+Date:   Fri Sep 13 00:59:02 2019 +0800
+
+    net/mlx5: Remove unneeded variable in mlx5_unload_one
+
+    mlx5_unload_one do not need local variable to store different value,
+    Hence just remove it.
+
+    Signed-off-by: zhong jiang <zhongjiang@huawei.com>
+    Acked-by: Saeed Mahameed <saeedm@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/main.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index 490bd80c586a..57e376e4e938 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -1252,8 +1252,6 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, bool boot)
+ 
+ static int mlx5_unload_one(struct mlx5_core_dev *dev, bool cleanup)
+ {
+-	int err = 0;
+-
+ 	if (cleanup) {
+ 		mlx5_unregister_device(dev);
+ 		mlx5_drain_health_wq(dev);
+@@ -1281,7 +1279,7 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, bool cleanup)
+ 	mlx5_function_teardown(dev, cleanup);
+ out:
+ 	mutex_unlock(&dev->intf_state_mutex);
+-	return err;
++	return 0;
+ }
+ 
+ static int mlx5_mdev_init(struct mlx5_core_dev *dev, int profile_idx)
+-- 
+2.13.6
+

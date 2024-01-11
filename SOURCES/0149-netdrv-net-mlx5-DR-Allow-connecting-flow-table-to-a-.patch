@@ -1,0 +1,60 @@
+From d47363e4069aca93d2aad93d44daeaf8f187cbac Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:09 -0400
+Subject: [PATCH 149/312] [netdrv] net/mlx5: DR, Allow connecting flow table to
+ a lower/same level table
+
+Message-id: <20200512105530.4207-44-ahleihel@redhat.com>
+Patchwork-id: 306915
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 043/124] net/mlx5: DR, Allow connecting flow table to a lower/same level table
+Bugzilla: 1789384 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Bugzilla: http://bugzilla.redhat.com/1789384
+Upstream: v5.6-rc1
+
+commit 4c7cea2f31f1dde9c578e4729e0d34f340052037
+Author: Yevgeny Kliteynik <kliteyn@mellanox.com>
+Date:   Mon Jan 20 11:51:36 2020 +0200
+
+    net/mlx5: DR, Allow connecting flow table to a lower/same level table
+
+    Allow connecting SW steering source table to a lower/same level
+    destination table.
+    Lifting this limitation is required to support Connection Tracking.
+
+    Signed-off-by: Yevgeny Kliteynik <kliteyn@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/steering/dr_action.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_action.c b/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_action.c
+index 286fcec5eff2..6dec2a550a10 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_action.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_action.c
+@@ -677,9 +677,12 @@ int mlx5dr_actions_build_ste_arr(struct mlx5dr_matcher *matcher,
+ 					goto out_invalid_arg;
+ 				}
+ 				if (action->dest_tbl.tbl->level <= matcher->tbl->level) {
++					mlx5_core_warn_once(dmn->mdev,
++							    "Connecting table to a lower/same level destination table\n");
+ 					mlx5dr_dbg(dmn,
+-						   "Destination table level should be higher than source table\n");
+-					goto out_invalid_arg;
++						   "Connecting table at level %d to a destination table at level %d\n",
++						   matcher->tbl->level,
++						   action->dest_tbl.tbl->level);
+ 				}
+ 				attr.final_icm_addr = rx_rule ?
+ 					action->dest_tbl.tbl->rx.s_anchor->chunk->icm_addr :
+-- 
+2.13.6
+

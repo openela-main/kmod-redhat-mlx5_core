@@ -1,0 +1,59 @@
+From f1954e485506f27fcc4ba60d0fe6d95d25f7c419 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Mon, 1 Jun 2020 15:40:28 -0400
+Subject: [PATCH 276/312] [netdrv] net/mlx5e: Fix devlink port netdev
+ unregistration sequence
+
+Message-id: <20200601154102.25980-6-ahleihel@redhat.com>
+Patchwork-id: 315710
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1842258 05/39] net/mlx5e: Fix devlink port netdev unregistration sequence
+Bugzilla: 1842258 1790226
+RH-Acked-by: Honggang Li <honli@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1790226
+Bugzilla: http://bugzilla.redhat.com/1842258
+Upstream: v5.7-rc2
+
+commit 230a1bc2470c5554a8c2bfe14774863897dc9386
+Author: Parav Pandit <parav@mellanox.com>
+Date:   Fri Apr 3 02:35:46 2020 -0500
+
+    net/mlx5e: Fix devlink port netdev unregistration sequence
+
+    In cited commit netdevice is registered after devlink port.
+
+    Unregistration flow should be mirror sequence of registration flow.
+    Hence, unregister netdevice before devlink port.
+
+    Fixes: 31e87b39ba9d ("net/mlx5e: Fix devlink port register sequence")
+    Reviewed-by: Jiri Pirko <jiri@mellanox.com>
+    Signed-off-by: Parav Pandit <parav@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 7698167f6dab..15102b5b8d4a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -5535,8 +5535,8 @@ static void mlx5e_remove(struct mlx5_core_dev *mdev, void *vpriv)
+ #ifdef CONFIG_MLX5_CORE_EN_DCB
+ 	mlx5e_dcbnl_delete_app(priv);
+ #endif
+-	mlx5e_devlink_port_unregister(priv);
+ 	unregister_netdev(priv->netdev);
++	mlx5e_devlink_port_unregister(priv);
+ 	mlx5e_detach(mdev, vpriv);
+ 	mlx5e_destroy_netdev(priv);
+ }
+-- 
+2.13.6
+

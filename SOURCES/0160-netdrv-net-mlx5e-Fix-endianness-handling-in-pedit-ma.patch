@@ -1,0 +1,60 @@
+From e1ab0b9cf6e66899078f6c7b44a32c3322f0b4b4 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:29 -0400
+Subject: [PATCH 160/312] [netdrv] net/mlx5e: Fix endianness handling in pedit
+ mask
+
+Message-id: <20200512105530.4207-64-ahleihel@redhat.com>
+Patchwork-id: 306935
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 063/124] net/mlx5e: Fix endianness handling in pedit mask
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.6
+
+commit 404402abd5f90aa90a134eb9604b1750c1941529
+Author: Sebastian Hense <sebastian.hense1@ibm.com>
+Date:   Thu Feb 20 08:11:36 2020 +0100
+
+    net/mlx5e: Fix endianness handling in pedit mask
+
+    The mask value is provided as 64 bit and has to be casted in
+    either 32 or 16 bit. On big endian systems the wrong half was
+    casted which resulted in an all zero mask.
+
+    Fixes: 2b64beba0251 ("net/mlx5e: Support header re-write of partial fields in TC pedit offload")
+    Signed-off-by: Sebastian Hense <sebastian.hense1@ibm.com>
+    Reviewed-by: Roi Dayan <roid@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index 5f56830ab709..2c89f1251354 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -2463,10 +2463,11 @@ static int offload_pedit_fields(struct pedit_headers_action *hdrs,
+ 			continue;
+ 
+ 		if (f->field_bsize == 32) {
+-			mask_be32 = *(__be32 *)&mask;
++			mask_be32 = (__be32)mask;
+ 			mask = (__force unsigned long)cpu_to_le32(be32_to_cpu(mask_be32));
+ 		} else if (f->field_bsize == 16) {
+-			mask_be16 = *(__be16 *)&mask;
++			mask_be32 = (__be32)mask;
++			mask_be16 = *(__be16 *)&mask_be32;
+ 			mask = (__force unsigned long)cpu_to_le16(be16_to_cpu(mask_be16));
+ 		}
+ 
+-- 
+2.13.6
+

@@ -1,0 +1,70 @@
+From e64a826c128582b7af72680bd51b27f44803c829 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:52:11 -0400
+Subject: [PATCH 042/312] [netdrv] net/mlx5: Fix return code in case of hyperv
+ wrong size read
+
+Message-id: <20200510145245.10054-49-ahleihel@redhat.com>
+Patchwork-id: 306590
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 48/82] net/mlx5: Fix return code in case of hyperv wrong size read
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc1
+
+commit 87cade2997c9210cfeb625957e44b865a89d0c13
+Author: Eran Ben Elisha <eranbe@mellanox.com>
+Date:   Fri Aug 23 15:34:47 2019 +0300
+
+    net/mlx5: Fix return code in case of hyperv wrong size read
+
+    Return code value could be non deterministic in case of wrong size read.
+    With this patch, if such error occurs, set rc to be -EIO.
+
+    In addition, mlx5_hv_config_common() supports reading of
+    HV_CONFIG_BLOCK_SIZE_MAX bytes only, fix to early return error with
+    bad input.
+
+    Fixes: 913d14e86657 ("net/mlx5: Add wrappers for HyperV PCIe operations")
+    Reported-by: Leon Romanovsky <leon@kernel.org>
+    Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/lib/hv.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lib/hv.c b/drivers/net/ethernet/mellanox/mlx5/core/lib/hv.c
+index cf08d02703fb..583dc7e2aca8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/lib/hv.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/lib/hv.c
+@@ -12,7 +12,7 @@ static int mlx5_hv_config_common(struct mlx5_core_dev *dev, void *buf, int len,
+ 	int bytes_returned;
+ 	int block_id;
+ 
+-	if (offset % HV_CONFIG_BLOCK_SIZE_MAX || len % HV_CONFIG_BLOCK_SIZE_MAX)
++	if (offset % HV_CONFIG_BLOCK_SIZE_MAX || len != HV_CONFIG_BLOCK_SIZE_MAX)
+ 		return -EINVAL;
+ 
+ 	block_id = offset / HV_CONFIG_BLOCK_SIZE_MAX;
+@@ -25,8 +25,8 @@ static int mlx5_hv_config_common(struct mlx5_core_dev *dev, void *buf, int len,
+ 				  HV_CONFIG_BLOCK_SIZE_MAX, block_id);
+ 
+ 	/* Make sure len bytes were read successfully  */
+-	if (read)
+-		rc |= !(len == bytes_returned);
++	if (read && !rc && len != bytes_returned)
++		rc = -EIO;
+ 
+ 	if (rc) {
+ 		mlx5_core_err(dev, "Failed to %s hv config, err = %d, len = %d, offset = %d\n",
+-- 
+2.13.6
+

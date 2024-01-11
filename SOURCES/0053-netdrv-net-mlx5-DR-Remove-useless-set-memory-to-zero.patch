@@ -1,0 +1,52 @@
+From ec079f9d2196ec46943d99aa88a0af28e02724aa Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:52:26 -0400
+Subject: [PATCH 053/312] [netdrv] net/mlx5: DR, Remove useless set memory to
+ zero use memset()
+
+Message-id: <20200510145245.10054-64-ahleihel@redhat.com>
+Patchwork-id: 306604
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 63/82] net/mlx5: DR, Remove useless set memory to zero use memset()
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc1
+
+commit f6a8cddfb50a5d530400f10c435f420b15962800
+Author: Wei Yongjun <weiyongjun1@huawei.com>
+Date:   Thu Sep 5 09:53:26 2019 +0000
+
+    net/mlx5: DR, Remove useless set memory to zero use memset()
+
+    The memory return by kzalloc() has already be set to zero, so
+    remove useless memset(0).
+
+    Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/steering/dr_send.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_send.c b/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_send.c
+index e6c6bf4a9578..c7f10d4f8f8d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_send.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_send.c
+@@ -902,7 +902,6 @@ int mlx5dr_send_ring_alloc(struct mlx5dr_domain *dmn)
+ 		goto clean_qp;
+ 	}
+ 
+-	memset(dmn->send_ring->buf, 0, size);
+ 	dmn->send_ring->buf_size = size;
+ 
+ 	dmn->send_ring->mr = dr_reg_mr(dmn->mdev,
+-- 
+2.13.6
+

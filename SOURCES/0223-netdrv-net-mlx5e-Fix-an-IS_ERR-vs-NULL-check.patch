@@ -1,0 +1,54 @@
+From 05970587bb399a2746dd10cb62e460e7ef1ff528 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:48:45 -0400
+Subject: [PATCH 223/312] [netdrv] net/mlx5e: Fix an IS_ERR() vs NULL check
+
+Message-id: <20200519074934.6303-15-ahleihel@redhat.com>
+Patchwork-id: 310520
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 14/63] net/mlx5e: Fix an IS_ERR() vs NULL check
+Bugzilla: 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Upstream: v5.7-rc1
+
+commit d9fb932fde217b15eab2111605b05a05b47ea593
+Author: Dan Carpenter <dan.carpenter@oracle.com>
+Date:   Wed Mar 4 17:22:24 2020 +0300
+
+    net/mlx5e: Fix an IS_ERR() vs NULL check
+
+    The esw_vport_tbl_get() function returns error pointers on error.
+
+    Fixes: 96e326878fa5 ("net/mlx5e: Eswitch, Use per vport tables for mirroring")
+    Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 8b7a2b095ec3..25665ff7e9c5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -196,7 +196,7 @@ int mlx5_esw_vport_tbl_get(struct mlx5_eswitch *esw)
+ 	mlx5_esw_for_all_vports(esw, i, vport) {
+ 		attr.in_rep->vport = vport->vport;
+ 		fdb = esw_vport_tbl_get(esw, &attr);
+-		if (!fdb)
++		if (IS_ERR(fdb))
+ 			goto out;
+ 	}
+ 	return 0;
+-- 
+2.13.6
+

@@ -1,0 +1,59 @@
+From 2a64d48496c728bef101e32c3b8697c9eecbe85d Mon Sep 17 00:00:00 2001
+From: Marcelo Leitner <mleitner@redhat.com>
+Date: Thu, 21 May 2020 03:55:12 -0400
+Subject: [PATCH 307/312] [include] netfilter: add include guard to
+ xt_connlabel.h
+
+Message-id: <75f3f7ff23efae20be98ea07eb9cd44e6ea2942b.1590033302.git.mleitner@redhat.com>
+Patchwork-id: 313057
+Patchwork-instance: patchwork
+O-Subject: [RHEL-8.3 net 1/2] netfilter: add include guard to xt_connlabel.h
+Bugzilla: 1837856
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Florian Westphal <fwestpha@redhat.com>
+
+Bugzilla: https://bugzilla.redhat.com/show_bug.cgi?id=1837856
+Build Info: https://brewweb.engineering.redhat.com/brew/taskinfo?taskID=28732649
+
+commit 91826ba13855f73e252fef68369b3b0e1ed25253
+Author: Masahiro Yamada <yamada.masahiro@socionext.com>
+Date:   Mon Jul 29 00:51:38 2019 +0900
+
+    netfilter: add include guard to xt_connlabel.h
+
+    Add a header include guard just in case.
+
+    Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+    Acked-by: Florian Westphal <fw@strlen.de>
+    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+
+Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Signed-off-by: Timothy Redaelli <tredaelli@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ include/uapi/linux/netfilter/xt_connlabel.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/include/uapi/linux/netfilter/xt_connlabel.h b/include/uapi/linux/netfilter/xt_connlabel.h
+index 2312f0ec07b2..323f0dfc2a4e 100644
+--- a/include/uapi/linux/netfilter/xt_connlabel.h
++++ b/include/uapi/linux/netfilter/xt_connlabel.h
+@@ -1,4 +1,8 @@
+ /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
++
++#ifndef _UAPI_XT_CONNLABEL_H
++#define _UAPI_XT_CONNLABEL_H
++
+ #include <linux/types.h>
+ 
+ #define XT_CONNLABEL_MAXBIT 127
+@@ -11,3 +15,5 @@ struct xt_connlabel_mtinfo {
+ 	__u16 bit;
+ 	__u16 options;
+ };
++
++#endif /* _UAPI_XT_CONNLABEL_H */
+-- 
+2.13.6
+

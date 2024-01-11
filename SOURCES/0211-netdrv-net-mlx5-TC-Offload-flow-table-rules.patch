@@ -1,0 +1,215 @@
+From b48be0498952550c01fb5de0769c8f1be1ac612d Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:48:32 -0400
+Subject: [PATCH 211/312] [netdrv] net/mlx5: TC: Offload flow table rules
+
+Message-id: <20200519074934.6303-2-ahleihel@redhat.com>
+Patchwork-id: 310508
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 01/63] net/mlx5: TC: Offload flow table rules
+Bugzilla: 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Upstream: v5.5-rc1
+Conflicts:
+ - drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+   Small context diff due to already backported commit:
+   554fe75c1b3f ("net/mlx5e: Avoid duplicating rule destinations")
+   ---> Different list of local variables in function parse_tc_fdb_actions.
+
+commit 84179981317fb4fb3e9df5acd42ea33cf6037793
+Author: Paul Blakey <paulb@mellanox.com>
+Date:   Tue Nov 12 00:34:30 2019 +0100
+
+    net/mlx5: TC: Offload flow table rules
+
+    Since both tc rules and flow table rules are of the same format,
+    we can re-use tc parsing for that, and move the flow table rules
+    to their steering domain - In this case, the next chain after
+    max tc chain.
+
+    Signed-off-by: Paul Blakey <paulb@mellanox.com>
+    Reviewed-by: Mark Bloch <markb@mellanox.com>
+    Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c | 45 ++++++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c  | 28 ++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.h  |  3 +-
+ 3 files changed, 71 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index 7ba784575a23..d03d80e162df 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -1220,21 +1220,60 @@ static int mlx5e_rep_setup_tc_cb(enum tc_setup_type type, void *type_data,
+ 	}
+ }
+ 
+-static LIST_HEAD(mlx5e_rep_block_cb_list);
++static int mlx5e_rep_setup_ft_cb(enum tc_setup_type type, void *type_data,
++				 void *cb_priv)
++{
++	struct flow_cls_offload *f = type_data;
++	struct flow_cls_offload cls_flower;
++	struct mlx5e_priv *priv = cb_priv;
++	struct mlx5_eswitch *esw;
++	unsigned long flags;
++	int err;
++
++	flags = MLX5_TC_FLAG(INGRESS) |
++		MLX5_TC_FLAG(ESW_OFFLOAD) |
++		MLX5_TC_FLAG(FT_OFFLOAD);
++	esw = priv->mdev->priv.eswitch;
+ 
++	switch (type) {
++	case TC_SETUP_CLSFLOWER:
++		if (!mlx5_eswitch_prios_supported(esw) || f->common.chain_index)
++			return -EOPNOTSUPP;
++
++		/* Re-use tc offload path by moving the ft flow to the
++		 * reserved ft chain.
++		 */
++		memcpy(&cls_flower, f, sizeof(*f));
++		cls_flower.common.chain_index = FDB_FT_CHAIN;
++		err = mlx5e_rep_setup_tc_cls_flower(priv, &cls_flower, flags);
++		memcpy(&f->stats, &cls_flower.stats, sizeof(f->stats));
++		return err;
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++static LIST_HEAD(mlx5e_rep_block_tc_cb_list);
++static LIST_HEAD(mlx5e_rep_block_ft_cb_list);
+ static int mlx5e_rep_setup_tc(struct net_device *dev, enum tc_setup_type type,
+ 			      void *type_data)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
+ 	struct flow_block_offload *f = type_data;
+ 
++	f->unlocked_driver_cb = true;
++
+ 	switch (type) {
+ 	case TC_SETUP_BLOCK:
+-		f->unlocked_driver_cb = true;
+ 		return flow_block_cb_setup_simple(type_data,
+-						  &mlx5e_rep_block_cb_list,
++						  &mlx5e_rep_block_tc_cb_list,
+ 						  mlx5e_rep_setup_tc_cb,
+ 						  priv, priv, true);
++	case TC_SETUP_FT:
++		return flow_block_cb_setup_simple(type_data,
++						  &mlx5e_rep_block_ft_cb_list,
++						  mlx5e_rep_setup_ft_cb,
++						  priv, priv, true);
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index 3461aec49d9e..3df69f8ed58a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -74,6 +74,7 @@ enum {
+ 	MLX5E_TC_FLOW_FLAG_INGRESS	= MLX5E_TC_FLAG_INGRESS_BIT,
+ 	MLX5E_TC_FLOW_FLAG_EGRESS	= MLX5E_TC_FLAG_EGRESS_BIT,
+ 	MLX5E_TC_FLOW_FLAG_ESWITCH	= MLX5E_TC_FLAG_ESW_OFFLOAD_BIT,
++	MLX5E_TC_FLOW_FLAG_FT		= MLX5E_TC_FLAG_FT_OFFLOAD_BIT,
+ 	MLX5E_TC_FLOW_FLAG_NIC		= MLX5E_TC_FLAG_NIC_OFFLOAD_BIT,
+ 	MLX5E_TC_FLOW_FLAG_OFFLOADED	= MLX5E_TC_FLOW_BASE,
+ 	MLX5E_TC_FLOW_FLAG_HAIRPIN	= MLX5E_TC_FLOW_BASE + 1,
+@@ -276,6 +277,11 @@ static bool mlx5e_is_eswitch_flow(struct mlx5e_tc_flow *flow)
+ 	return flow_flag_test(flow, ESWITCH);
+ }
+ 
++static bool mlx5e_is_ft_flow(struct mlx5e_tc_flow *flow)
++{
++	return flow_flag_test(flow, FT);
++}
++
+ static bool mlx5e_is_offloaded_flow(struct mlx5e_tc_flow *flow)
+ {
+ 	return flow_flag_test(flow, OFFLOADED);
+@@ -1171,7 +1177,12 @@ mlx5e_tc_add_fdb_flow(struct mlx5e_priv *priv,
+ 		return -EOPNOTSUPP;
+ 	}
+ 
+-	if (attr->chain > max_chain) {
++	/* We check chain range only for tc flows.
++	 * For ft flows, we checked attr->chain was originally 0 and set it to
++	 * FDB_FT_CHAIN which is outside tc range.
++	 * See mlx5e_rep_setup_ft_cb().
++	 */
++	if (!mlx5e_is_ft_flow(flow) && attr->chain > max_chain) {
+ 		NL_SET_ERR_MSG(extack, "Requested chain is out of supported range");
+ 		return -EOPNOTSUPP;
+ 	}
+@@ -3315,6 +3326,7 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv,
+ 	struct mlx5e_rep_priv *rpriv = priv->ppriv;
+ 	const struct ip_tunnel_info *info = NULL;
+ 	int ifindexes[MLX5_MAX_FLOW_FWD_VPORTS];
++	bool ft_flow = mlx5e_is_ft_flow(flow);
+ 	const struct flow_action_entry *act;
+ 	int err, i, if_count = 0;
+ 	bool encap = false;
+@@ -3362,6 +3374,14 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv,
+ 				return -EINVAL;
+ 			}
+ 
++			if (ft_flow && out_dev == priv->netdev) {
++				/* Ignore forward to self rules generated
++				 * by adding both mlx5 devs to the flow table
++				 * block on a normal nft offload setup.
++				 */
++				return -EOPNOTSUPP;
++			}
++
+ 			if (attr->out_count >= MLX5_MAX_FLOW_FWD_VPORTS) {
+ 				NL_SET_ERR_MSG_MOD(extack,
+ 						   "can't support more output ports, can't offload forwarding");
+@@ -3518,6 +3538,10 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv,
+ 			u32 dest_chain = act->chain_index;
+ 			u32 max_chain = mlx5_eswitch_get_chain_range(esw);
+ 
++			if (ft_flow) {
++				NL_SET_ERR_MSG_MOD(extack, "Goto action is not supported");
++				return -EOPNOTSUPP;
++			}
+ 			if (dest_chain <= attr->chain) {
+ 				NL_SET_ERR_MSG(extack, "Goto earlier chain isn't supported");
+ 				return -EOPNOTSUPP;
+@@ -3608,6 +3632,8 @@ static void get_flags(int flags, unsigned long *flow_flags)
+ 		__flow_flags |= BIT(MLX5E_TC_FLOW_FLAG_ESWITCH);
+ 	if (flags & MLX5_TC_FLAG(NIC_OFFLOAD))
+ 		__flow_flags |= BIT(MLX5E_TC_FLOW_FLAG_NIC);
++	if (flags & MLX5_TC_FLAG(FT_OFFLOAD))
++		__flow_flags |= BIT(MLX5E_TC_FLOW_FLAG_FT);
+ 
+ 	*flow_flags = __flow_flags;
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
+index 924c6ef86a14..262cdb7b69b1 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
+@@ -44,7 +44,8 @@ enum {
+ 	MLX5E_TC_FLAG_EGRESS_BIT,
+ 	MLX5E_TC_FLAG_NIC_OFFLOAD_BIT,
+ 	MLX5E_TC_FLAG_ESW_OFFLOAD_BIT,
+-	MLX5E_TC_FLAG_LAST_EXPORTED_BIT = MLX5E_TC_FLAG_ESW_OFFLOAD_BIT,
++	MLX5E_TC_FLAG_FT_OFFLOAD_BIT,
++	MLX5E_TC_FLAG_LAST_EXPORTED_BIT = MLX5E_TC_FLAG_FT_OFFLOAD_BIT,
+ };
+ 
+ #define MLX5_TC_FLAG(flag) BIT(MLX5E_TC_FLAG_##flag##_BIT)
+-- 
+2.13.6
+

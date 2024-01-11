@@ -1,0 +1,82 @@
+From 9a16b3d75ba103147a6c45f89ab433538767b726 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:55:09 -0400
+Subject: [PATCH 193/312] [netdrv] net/mlx5e: Use netdev_warn() instead of
+ pr_err() for errors
+
+Message-id: <20200512105530.4207-104-ahleihel@redhat.com>
+Patchwork-id: 306975
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 103/124] net/mlx5e: Use netdev_warn() instead of pr_err() for errors
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.7-rc1
+
+commit 4ccd83f40cdc0c5b3b93cd176f9583994832f5f7
+Author: Roi Dayan <roid@mellanox.com>
+Date:   Tue Feb 18 15:24:39 2020 +0200
+
+    net/mlx5e: Use netdev_warn() instead of pr_err() for errors
+
+    This is for added netdev prefix that helps identify
+    the source of the message.
+
+    Signed-off-by: Roi Dayan <roid@mellanox.com>
+    Reviewed-by: Eli Cohen <eli@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index 6c37a9e7912e..2fc1a0879e5d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -3360,8 +3360,9 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv,
+ 			if (attr->out_count >= MLX5_MAX_FLOW_FWD_VPORTS) {
+ 				NL_SET_ERR_MSG_MOD(extack,
+ 						   "can't support more output ports, can't offload forwarding");
+-				pr_err("can't support more than %d output ports, can't offload forwarding\n",
+-				       attr->out_count);
++				netdev_warn(priv->netdev,
++					    "can't support more than %d output ports, can't offload forwarding\n",
++					    attr->out_count);
+ 				return -EOPNOTSUPP;
+ 			}
+ 
+@@ -3439,8 +3440,10 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv,
+ 				if (!mlx5e_is_valid_eswitch_fwd_dev(priv, out_dev)) {
+ 					NL_SET_ERR_MSG_MOD(extack,
+ 							   "devices are not on same switch HW, can't offload forwarding");
+-					pr_err("devices %s %s not on same switch HW, can't offload forwarding\n",
+-					       priv->netdev->name, out_dev->name);
++					netdev_warn(priv->netdev,
++						    "devices %s %s not on same switch HW, can't offload forwarding\n",
++						    priv->netdev->name,
++						    out_dev->name);
+ 					return -EOPNOTSUPP;
+ 				}
+ 
+@@ -3459,8 +3462,10 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv,
+ 			} else {
+ 				NL_SET_ERR_MSG_MOD(extack,
+ 						   "devices are not on same switch HW, can't offload forwarding");
+-				pr_err("devices %s %s not on same switch HW, can't offload forwarding\n",
+-				       priv->netdev->name, out_dev->name);
++				netdev_warn(priv->netdev,
++					    "devices %s %s not on same switch HW, can't offload forwarding\n",
++					    priv->netdev->name,
++					    out_dev->name);
+ 				return -EINVAL;
+ 			}
+ 			}
+-- 
+2.13.6
+

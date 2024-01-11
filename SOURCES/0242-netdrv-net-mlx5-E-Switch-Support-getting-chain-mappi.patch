@@ -1,0 +1,90 @@
+From 28a820a8329a0261bbccae76fe2c5a2cf84d857a Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:49:04 -0400
+Subject: [PATCH 242/312] [netdrv] net/mlx5: E-Switch, Support getting chain
+ mapping
+
+Message-id: <20200519074934.6303-34-ahleihel@redhat.com>
+Patchwork-id: 310536
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 33/63] net/mlx5: E-Switch, Support getting chain mapping
+Bugzilla: 1790219 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Bugzilla: http://bugzilla.redhat.com/1790219
+Upstream: v5.7-rc1
+
+commit 43435e91396fd156a31f0e3977f60f564a66a328
+Author: Paul Blakey <paulb@mellanox.com>
+Date:   Thu Mar 12 12:23:12 2020 +0200
+
+    net/mlx5: E-Switch, Support getting chain mapping
+
+    Currently, we write chain register mapping on miss from the the last
+    prio of a chain. It is used to restore the chain in software.
+
+    To support re-using the chain register mapping from global tables (such
+    as CT tuple table) misses, export the chain mapping.
+
+    Signed-off-by: Paul Blakey <paulb@mellanox.com>
+    Reviewed-by: Oz Shlomo <ozsh@mellanox.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads_chains.c   | 13 +++++++++++++
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads_chains.h   |  7 +++++++
+ 2 files changed, 20 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.c
+index 6f62a326071a..0f9c9aae11bf 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.c
+@@ -897,6 +897,19 @@ mlx5_esw_chains_destroy(struct mlx5_eswitch *esw)
+ 	mlx5_esw_chains_cleanup(esw);
+ }
+ 
++int
++mlx5_esw_chains_get_chain_mapping(struct mlx5_eswitch *esw, u32 chain,
++				  u32 *chain_mapping)
++{
++	return mapping_add(esw_chains_mapping(esw), &chain, chain_mapping);
++}
++
++int
++mlx5_esw_chains_put_chain_mapping(struct mlx5_eswitch *esw, u32 chain_mapping)
++{
++	return mapping_remove(esw_chains_mapping(esw), chain_mapping);
++}
++
+ int mlx5_eswitch_get_chain_for_tag(struct mlx5_eswitch *esw, u32 tag,
+ 				   u32 *chain)
+ {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.h
+index c7bc609acb91..f3b9ae6798f3 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.h
+@@ -31,6 +31,13 @@ void
+ mlx5_esw_chains_destroy_global_table(struct mlx5_eswitch *esw,
+ 				     struct mlx5_flow_table *ft);
+ 
++int
++mlx5_esw_chains_get_chain_mapping(struct mlx5_eswitch *esw, u32 chain,
++				  u32 *chain_mapping);
++int
++mlx5_esw_chains_put_chain_mapping(struct mlx5_eswitch *esw,
++				  u32 chain_mapping);
++
+ int mlx5_esw_chains_create(struct mlx5_eswitch *esw);
+ void mlx5_esw_chains_destroy(struct mlx5_eswitch *esw);
+ 
+-- 
+2.13.6
+

@@ -1,0 +1,56 @@
+From e5f6c16cccd60aaed2a00bf07ae5a142816c05cf Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:28 -0400
+Subject: [PATCH 159/312] [netdrv] net/mlx5e: kTLS, Fix wrong value in record
+ tracker enum
+
+Message-id: <20200512105530.4207-63-ahleihel@redhat.com>
+Patchwork-id: 306934
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 062/124] net/mlx5e: kTLS, Fix wrong value in record tracker enum
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.6
+
+commit f28ca65efa87b3fb8da3d69ca7cb1ebc0448de66
+Author: Tariq Toukan <tariqt@mellanox.com>
+Date:   Mon Feb 24 13:56:53 2020 +0200
+
+    net/mlx5e: kTLS, Fix wrong value in record tracker enum
+
+    Fix to match the HW spec: TRACKING state is 1, SEARCHING is 2.
+    No real issue for now, as these values are not currently used.
+
+    Fixes: d2ead1f360e8 ("net/mlx5e: Add kTLS TX HW offload support")
+    Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+    Reviewed-by: Boris Pismenny <borisp@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls.h b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls.h
+index a3efa29a4629..63116be6b1d6 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls.h
+@@ -38,8 +38,8 @@ enum {
+ 
+ enum {
+ 	MLX5E_TLS_PROGRESS_PARAMS_RECORD_TRACKER_STATE_START     = 0,
+-	MLX5E_TLS_PROGRESS_PARAMS_RECORD_TRACKER_STATE_SEARCHING = 1,
+-	MLX5E_TLS_PROGRESS_PARAMS_RECORD_TRACKER_STATE_TRACKING  = 2,
++	MLX5E_TLS_PROGRESS_PARAMS_RECORD_TRACKER_STATE_TRACKING  = 1,
++	MLX5E_TLS_PROGRESS_PARAMS_RECORD_TRACKER_STATE_SEARCHING = 2,
+ };
+ 
+ struct mlx5e_ktls_offload_context_tx {
+-- 
+2.13.6
+

@@ -1,0 +1,62 @@
+From 32bd5c04ec418a69b6e9701faa84ef0a7abb2745 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:53:35 -0400
+Subject: [PATCH 129/312] [netdrv] mlx5: work around high stack usage with gcc
+
+Message-id: <20200512105530.4207-10-ahleihel@redhat.com>
+Patchwork-id: 306881
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 009/124] mlx5: work around high stack usage with gcc
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.6-rc1
+
+commit 42ae1a5c76691928ed217c7e40269db27f5225e9
+Author: Arnd Bergmann <arnd@arndb.de>
+Date:   Sat Jan 4 22:51:44 2020 +0100
+
+    mlx5: work around high stack usage with gcc
+
+    In some configurations, gcc tries too hard to optimize this code:
+
+    drivers/net/ethernet/mellanox/mlx5/core/en_stats.c: In function 'mlx5e_grp_sw_update_stats':
+    drivers/net/ethernet/mellanox/mlx5/core/en_stats.c:302:1: error: the frame size of 1336 bytes is larger than 1024 bytes [-Werror=frame-larger-than=]
+
+    As was stated in the bug report, the reason is that gcc runs into a corner
+    case in the register allocator that is rather hard to fix in a good way.
+
+    As there is an easy way to work around it, just add a comment and the
+    barrier that stops gcc from trying to overoptimize the function.
+
+    Link: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=92657
+    Cc: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+    Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_stats.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c
+index 23587f55fad7..30b216d9284c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c
+@@ -349,6 +349,9 @@ static MLX5E_DECLARE_STATS_GRP_OP_UPDATE_STATS(sw)
+ 			s->tx_tls_drop_bypass_req   += sq_stats->tls_drop_bypass_req;
+ #endif
+ 			s->tx_cqes		+= sq_stats->cqes;
++
++			/* https://gcc.gnu.org/bugzilla/show_bug.cgi?id=92657 */
++			barrier();
+ 		}
+ 	}
+ }
+-- 
+2.13.6
+

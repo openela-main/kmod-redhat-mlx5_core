@@ -1,0 +1,72 @@
+From a5c1c749cc7431312fdc02460312097395ffef29 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:53:36 -0400
+Subject: [PATCH 130/312] [netdrv] net/mlx5e: Support accept action on nic
+ table
+
+Message-id: <20200512105530.4207-11-ahleihel@redhat.com>
+Patchwork-id: 306882
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 010/124] net/mlx5e: Support accept action on nic table
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.6-rc1
+
+commit 15fc92ec3ad4cfb34218e6b6c38c1355938fe49e
+Author: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+Date:   Tue Dec 10 22:49:42 2019 +0800
+
+    net/mlx5e: Support accept action on nic table
+
+    In one case, we may forward packets from one vport
+    to others, but only one packets flow will be accepted,
+    which destination ip was assign to VF.
+
+    +-----+     +-----+            +-----+
+    | VFn |     | VF1 |            | VF0 | accept
+    +--+--+     +--+--+  hairpin   +--^--+
+       |           | <--------------- |
+       |           |                  |
+    +--+-----------v-+             +--+-------------+
+    |   eswitch PF1  |             |   eswitch PF0  |
+    +----------------+             +----------------+
+
+    tc filter add dev $PF0 protocol all parent ffff: prio 1 handle 1 \
+            flower skip_sw action mirred egress redirect dev $VF0_REP
+    tc filter add dev $VF0 protocol ip  parent ffff: prio 1 handle 1 \
+            flower skip_sw dst_ip $VF0_IP action pass
+    tc filter add dev $VF0 protocol all parent ffff: prio 2 handle 2 \
+            flower skip_sw action mirred egress redirect dev $VF1
+
+    Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+    Reviewed-by: Mark Bloch <markb@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index f701d62a86b1..93631f477140 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -2831,6 +2831,10 @@ static int parse_tc_nic_actions(struct mlx5e_priv *priv,
+ 
+ 	flow_action_for_each(i, act, flow_action) {
+ 		switch (act->id) {
++		case FLOW_ACTION_ACCEPT:
++			action |= MLX5_FLOW_CONTEXT_ACTION_FWD_DEST |
++				  MLX5_FLOW_CONTEXT_ACTION_COUNT;
++			break;
+ 		case FLOW_ACTION_DROP:
+ 			action |= MLX5_FLOW_CONTEXT_ACTION_DROP;
+ 			if (MLX5_CAP_FLOWTABLE(priv->mdev,
+-- 
+2.13.6
+

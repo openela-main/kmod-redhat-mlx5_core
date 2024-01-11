@@ -1,0 +1,89 @@
+From ab6346c0e2832d07aeba3f097ac796d14d198930 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:51:45 -0400
+Subject: [PATCH 021/312] [netdrv] net/mlx5e: Rename reporter header file
+
+Message-id: <20200510145245.10054-23-ahleihel@redhat.com>
+Patchwork-id: 306565
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 22/82] net/mlx5e: Rename reporter header file
+Bugzilla: 1790198 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Bugzilla: http://bugzilla.redhat.com/1790198
+Upstream: v5.4-rc1
+
+commit 4edc17fdfdf15c2971d15cbfa4d6f2f5f537ee5e
+Author: Aya Levin <ayal@mellanox.com>
+Date:   Mon Jul 1 14:53:34 2019 +0300
+
+    net/mlx5e: Rename reporter header file
+
+    Rename reporter.h -> health.h so patches in the set can use it for
+    health related functionality.
+
+    Signed-off-by: Aya Levin <ayal@mellanox.com>
+    Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+    Acked-by: Jiri Pirko <jiri@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en/{reporter.h => health.h} | 4 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/en/reporter_tx.c            | 2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c                   | 2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+ rename drivers/net/ethernet/mellanox/mlx5/core/en/{reporter.h => health.h} (84%)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/reporter.h b/drivers/net/ethernet/mellanox/mlx5/core/en/health.h
+similarity index 84%
+rename from drivers/net/ethernet/mellanox/mlx5/core/en/reporter.h
+rename to drivers/net/ethernet/mellanox/mlx5/core/en/health.h
+index ed7a3881d2c5..cee840e40a05 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/reporter.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/health.h
+@@ -1,8 +1,8 @@
+ /* SPDX-License-Identifier: GPL-2.0 */
+ /* Copyright (c) 2019 Mellanox Technologies. */
+ 
+-#ifndef __MLX5E_EN_REPORTER_H
+-#define __MLX5E_EN_REPORTER_H
++#ifndef __MLX5E_EN_HEALTH_H
++#define __MLX5E_EN_HEALTH_H
+ 
+ #include "en.h"
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/reporter_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en/reporter_tx.c
+index 817c6ea7e349..9ff19d69619f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/reporter_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/reporter_tx.c
+@@ -1,7 +1,7 @@
+ /* SPDX-License-Identifier: GPL-2.0 */
+ /* Copyright (c) 2019 Mellanox Technologies. */
+ 
+-#include "reporter.h"
++#include "health.h"
+ #include "lib/eq.h"
+ 
+ #define MLX5E_TX_REPORTER_PER_SQ_MAX_LEN 256
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 9ffcfa017d4f..118ad4717bfd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -56,7 +56,7 @@
+ #include "en/xdp.h"
+ #include "lib/eq.h"
+ #include "en/monitor_stats.h"
+-#include "en/reporter.h"
++#include "en/health.h"
+ #include "en/params.h"
+ #include "en/xsk/umem.h"
+ #include "en/xsk/setup.h"
+-- 
+2.13.6
+

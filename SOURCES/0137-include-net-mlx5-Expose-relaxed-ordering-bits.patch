@@ -1,0 +1,63 @@
+From 7d40102a473952195a7d0499d5084e85444dd2ff Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:53:51 -0400
+Subject: [PATCH 137/312] [include] net/mlx5: Expose relaxed ordering bits
+
+Message-id: <20200512105530.4207-26-ahleihel@redhat.com>
+Patchwork-id: 306897
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 025/124] net/mlx5: Expose relaxed ordering bits
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.6-rc1
+
+commit a880a6dd853713e02a2804dd7ecaf39c7d3d9b18
+Author: Michael Guralnik <michaelgur@mellanox.com>
+Date:   Wed Jan 8 20:05:31 2020 +0200
+
+    net/mlx5: Expose relaxed ordering bits
+
+    Expose relaxed ordering bits in HCA capability and mkey context structs.
+
+    Signed-off-by: Yishai Hadas <yishaih@mellanox.com>
+    Signed-off-by: Michael Guralnik <michaelgur@mellanox.com>
+    Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ include/linux/mlx5/mlx5_ifc.h | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index e7f293ce80cf..5afcda75c7d6 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -1177,7 +1177,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 	u8         log_max_cq[0x5];
+ 
+ 	u8         log_max_eq_sz[0x8];
+-	u8         reserved_at_e8[0x2];
++	u8         relaxed_ordering_write[0x1];
++	u8         relaxed_ordering_read[0x1];
+ 	u8         log_max_mkey[0x6];
+ 	u8         reserved_at_f0[0x8];
+ 	u8         dump_fill_mkey[0x1];
+@@ -3292,7 +3293,9 @@ struct mlx5_ifc_mkc_bits {
+ 
+ 	u8         translations_octword_size[0x20];
+ 
+-	u8         reserved_at_1c0[0x1b];
++	u8         reserved_at_1c0[0x19];
++	u8         relaxed_ordering_read[0x1];
++	u8         reserved_at_1d9[0x1];
+ 	u8         log_page_size[0x5];
+ 
+ 	u8         reserved_at_1e0[0x20];
+-- 
+2.13.6
+

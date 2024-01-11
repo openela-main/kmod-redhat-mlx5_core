@@ -1,0 +1,90 @@
+From 3ee7fedb0cc980a0923043e8dd7b87ec83998925 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:04:07 -0400
+Subject: [PATCH 089/312] [netdrv] net/mlx5: Do not hold group lock while
+ allocating FTE in software
+
+Message-id: <20200510150452.10307-43-ahleihel@redhat.com>
+Patchwork-id: 306666
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 42/87] net/mlx5: Do not hold group lock while allocating FTE in software
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5-rc1
+
+commit 84c7af637512be9c3254189bd5910dae0d2a8602
+Author: Parav Pandit <parav@mellanox.com>
+Date:   Thu Sep 19 17:22:19 2019 -0500
+
+    net/mlx5: Do not hold group lock while allocating FTE in software
+
+    FTE memory allocation using alloc_fte() doesn't have any dependency
+    on the flow group.
+    Hence, do not hold flow group lock while performing alloc_fte().
+    This helps to reduce contention of flow group lock.
+
+    Signed-off-by: Parav Pandit <parav@mellanox.com>
+    Reviewed-by: Daniel Jurgens <danielj@mellanox.com>
+    Reviewed-by: Mark Bloch <markb@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 19 ++++++++++---------
+ 1 file changed, 10 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index 495396f42153..e8064bd87aad 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -1817,6 +1817,13 @@ _mlx5_add_flow_rules(struct mlx5_flow_table *ft,
+ 		return rule;
+ 	}
+ 
++	fte = alloc_fte(ft, spec, flow_act);
++	if (IS_ERR(fte)) {
++		up_write_ref_node(&ft->node, false);
++		err = PTR_ERR(fte);
++		goto err_alloc_fte;
++	}
++
+ 	nested_down_write_ref_node(&g->node, FS_LOCK_PARENT);
+ 	up_write_ref_node(&ft->node, false);
+ 
+@@ -1824,17 +1831,9 @@ _mlx5_add_flow_rules(struct mlx5_flow_table *ft,
+ 	if (err)
+ 		goto err_release_fg;
+ 
+-	fte = alloc_fte(ft, spec, flow_act);
+-	if (IS_ERR(fte)) {
+-		err = PTR_ERR(fte);
+-		goto err_release_fg;
+-	}
+-
+ 	err = insert_fte(g, fte);
+-	if (err) {
+-		kmem_cache_free(steering->ftes_cache, fte);
++	if (err)
+ 		goto err_release_fg;
+-	}
+ 
+ 	nested_down_write_ref_node(&fte->node, FS_LOCK_CHILD);
+ 	up_write_ref_node(&g->node, false);
+@@ -1846,6 +1845,8 @@ _mlx5_add_flow_rules(struct mlx5_flow_table *ft,
+ 
+ err_release_fg:
+ 	up_write_ref_node(&g->node, false);
++	kmem_cache_free(steering->ftes_cache, fte);
++err_alloc_fte:
+ 	tree_put_node(&g->node, false);
+ 	return ERR_PTR(err);
+ }
+-- 
+2.13.6
+

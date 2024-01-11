@@ -1,0 +1,58 @@
+From 31794e8c50e21a6560a57e05a9b679691b1238ff Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:49:21 -0400
+Subject: [PATCH 259/312] [netdrv] net/mlx5e: Fix actions_match_supported()
+ return
+
+Message-id: <20200519074934.6303-51-ahleihel@redhat.com>
+Patchwork-id: 310546
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 50/63] net/mlx5e: Fix actions_match_supported() return
+Bugzilla: 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Upstream: v5.7-rc1
+
+commit 49397b801261160fb5f5d3f28536c792e72ecbb3
+Author: Dan Carpenter <dan.carpenter@oracle.com>
+Date:   Fri Mar 20 16:23:05 2020 +0300
+
+    net/mlx5e: Fix actions_match_supported() return
+
+    The actions_match_supported() function returns a bool, true for success
+    and false for failure.  This error path is returning a negative which
+    is cast to true but it should return false.
+
+    Fixes: 4c3844d9e97e ("net/mlx5e: CT: Introduce connection tracking")
+    Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+    Reviewed-by: Leon Romanovsky <leonro@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index e66a1e970196..f760231213d1 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -3058,7 +3058,7 @@ static bool actions_match_supported(struct mlx5e_priv *priv,
+ 			 */
+ 			NL_SET_ERR_MSG_MOD(extack,
+ 					   "Can't offload mirroring with action ct");
+-			return -EOPNOTSUPP;
++			return false;
+ 		}
+ 	} else {
+ 		actions = flow->nic_attr->action;
+-- 
+2.13.6
+

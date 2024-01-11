@@ -1,0 +1,78 @@
+From 87d65423773d32028e88214dbbb13e147b0388ac Mon Sep 17 00:00:00 2001
+From: Petr Oros <poros@redhat.com>
+Date: Mon, 24 Feb 2020 16:46:52 -0500
+Subject: [PATCH 003/312] [netdrv] mlx5: reject unsupported external timestamp
+ flags
+
+Message-id: <37f4742ef0d140155bdf2a2761983f6b886c9289.1582559430.git.poros@redhat.com>
+Patchwork-id: 295290
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 net PATCH 07/14] mlx5: reject unsupported external timestamp flags
+Bugzilla: 1795192
+RH-Acked-by: Neil Horman <nhorman@redhat.com>
+RH-Acked-by: Prarit Bhargava <prarit@redhat.com>
+RH-Acked-by: Corinna Vinschen <vinschen@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/show_bug.cgi?id=1795192
+
+Upstream commit(s):
+commit 2e0645a00e25f7122cad6da57ce3cc855df49ddd
+Author: Jacob Keller <jacob.e.keller@intel.com>
+Date:   Thu Nov 14 10:45:00 2019 -0800
+
+    mlx5: reject unsupported external timestamp flags
+
+    Fix the mlx5 core PTP support to explicitly reject any future flags that
+    get added to the external timestamp request ioctl.
+
+    In order to maintain currently functioning code, this patch accepts all
+    three current flags. This is because the PTP_RISING_EDGE and
+    PTP_FALLING_EDGE flags have unclear semantics and each driver seems to
+    have interpreted them slightly differently.
+
+    [ RC: I'm not 100% sure what this driver does, but if I'm not wrong it
+          follows the dp83640:
+
+      flags                                                 Meaning
+      ----------------------------------------------------  --------------------------
+      PTP_ENABLE_FEATURE                                    Time stamp rising edge
+      PTP_ENABLE_FEATURE|PTP_RISING_EDGE                    Time stamp rising edge
+      PTP_ENABLE_FEATURE|PTP_FALLING_EDGE                   Time stamp falling edge
+      PTP_ENABLE_FEATURE|PTP_RISING_EDGE|PTP_FALLING_EDGE   Time stamp falling edge
+    ]
+
+    Cc: Feras Daoud <ferasda@mellanox.com>
+    Cc: Eugenia Emantayev <eugenia@mellanox.com>
+    Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+    Reviewed-by: Richard Cochran <richardcochran@gmail.com>
+    Reviewed-by: Saeed Mahameed <saeedm@mellanox.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Signed-off-by: Petr Oros <poros@redhat.com>
+Signed-off-by: Timothy Redaelli <tredaelli@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/lib/clock.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lib/clock.c b/drivers/net/ethernet/mellanox/mlx5/core/lib/clock.c
+index cff6b60de304..9a40f24e3193 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/lib/clock.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/lib/clock.c
+@@ -236,6 +236,12 @@ static int mlx5_extts_configure(struct ptp_clock_info *ptp,
+ 	if (!MLX5_PPS_CAP(mdev))
+ 		return -EOPNOTSUPP;
+ 
++	/* Reject requests with unsupported flags */
++	if (rq->extts.flags & ~(PTP_ENABLE_FEATURE |
++				PTP_RISING_EDGE |
++				PTP_FALLING_EDGE))
++		return -EOPNOTSUPP;
++
+ 	if (rq->extts.index >= clock->ptp_info.n_pins)
+ 		return -EINVAL;
+ 
+-- 
+2.13.6
+

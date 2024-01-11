@@ -1,0 +1,119 @@
+From 140d271b80ed5361f6acf5cdbe265f215156868d Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:33 -0400
+Subject: [PATCH 163/312] [netdrv] net/mlx5e: Enhance ICOSQ WQE info fields
+
+Message-id: <20200512105530.4207-68-ahleihel@redhat.com>
+Patchwork-id: 306939
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 067/124] net/mlx5e: Enhance ICOSQ WQE info fields
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.6
+
+commit 1de0306c3a05d305e45b1f1fabe2f4e94222eb6b
+Author: Aya Levin <ayal@mellanox.com>
+Date:   Mon Mar 9 09:44:18 2020 +0200
+
+    net/mlx5e: Enhance ICOSQ WQE info fields
+
+    Add number of WQEBBs (WQE's Basic Block) to WQE info struct. Set the
+    number of WQEBBs on WQE post, and increment the consumer counter (cc)
+    on completion.
+
+    In case of error completions, the cc was mistakenly not incremented,
+    keeping a gap between cc and pc (producer counter). This failed the
+    recovery flow on the ICOSQ from a CQE error which timed-out waiting for
+    the cc and pc to meet.
+
+    Fixes: be5323c8379f ("net/mlx5e: Report and recover from CQE error on ICOSQ")
+    Signed-off-by: Aya Levin <ayal@mellanox.com>
+    Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |  1 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 11 +++++------
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c |  1 +
+ 3 files changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index bd34b1851162..44f35adbf775 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -370,6 +370,7 @@ enum {
+ 
+ struct mlx5e_sq_wqe_info {
+ 	u8  opcode;
++	u8 num_wqebbs;
+ 
+ 	/* Auxiliary data for different opcodes. */
+ 	union {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index f0170fb2edbc..1f42e88f4ec4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -478,6 +478,7 @@ static inline void mlx5e_fill_icosq_frag_edge(struct mlx5e_icosq *sq,
+ 	/* fill sq frag edge with nops to avoid wqe wrapping two pages */
+ 	for (; wi < edge_wi; wi++) {
+ 		wi->opcode = MLX5_OPCODE_NOP;
++		wi->num_wqebbs = 1;
+ 		mlx5e_post_nop(wq, sq->sqn, &sq->pc);
+ 	}
+ }
+@@ -526,6 +527,7 @@ static int mlx5e_alloc_rx_mpwqe(struct mlx5e_rq *rq, u16 ix)
+ 	umr_wqe->uctrl.xlt_offset = cpu_to_be16(xlt_offset);
+ 
+ 	sq->db.ico_wqe[pi].opcode = MLX5_OPCODE_UMR;
++	sq->db.ico_wqe[pi].num_wqebbs = MLX5E_UMR_WQEBBS;
+ 	sq->db.ico_wqe[pi].umr.rq = rq;
+ 	sq->pc += MLX5E_UMR_WQEBBS;
+ 
+@@ -622,6 +624,7 @@ void mlx5e_poll_ico_cq(struct mlx5e_cq *cq)
+ 
+ 			ci = mlx5_wq_cyc_ctr2ix(&sq->wq, sqcc);
+ 			wi = &sq->db.ico_wqe[ci];
++			sqcc += wi->num_wqebbs;
+ 
+ 			if (last_wqe && unlikely(get_cqe_opcode(cqe) != MLX5_CQE_REQ)) {
+ 				netdev_WARN_ONCE(cq->channel->netdev,
+@@ -632,16 +635,12 @@ void mlx5e_poll_ico_cq(struct mlx5e_cq *cq)
+ 				break;
+ 			}
+ 
+-			if (likely(wi->opcode == MLX5_OPCODE_UMR)) {
+-				sqcc += MLX5E_UMR_WQEBBS;
++			if (likely(wi->opcode == MLX5_OPCODE_UMR))
+ 				wi->umr.rq->mpwqe.umr_completed++;
+-			} else if (likely(wi->opcode == MLX5_OPCODE_NOP)) {
+-				sqcc++;
+-			} else {
++			else if (unlikely(wi->opcode != MLX5_OPCODE_NOP))
+ 				netdev_WARN_ONCE(cq->channel->netdev,
+ 						 "Bad OPCODE in ICOSQ WQE info: 0x%x\n",
+ 						 wi->opcode);
+-			}
+ 
+ 		} while (!last_wqe);
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+index 6d16dee38ede..a2daa3dfe15a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+@@ -77,6 +77,7 @@ void mlx5e_trigger_irq(struct mlx5e_icosq *sq)
+ 	u16 pi = mlx5_wq_cyc_ctr2ix(wq, sq->pc);
+ 
+ 	sq->db.ico_wqe[pi].opcode = MLX5_OPCODE_NOP;
++	sq->db.ico_wqe[pi].num_wqebbs = 1;
+ 	nopwqe = mlx5e_post_nop(wq, sq->sqn, &sq->pc);
+ 	mlx5e_notify_hw(wq, sq->pc, sq->uar_map, &nopwqe->ctrl);
+ }
+-- 
+2.13.6
+

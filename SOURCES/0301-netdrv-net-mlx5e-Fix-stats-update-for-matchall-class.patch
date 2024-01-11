@@ -1,0 +1,53 @@
+From d8752233d9a5fd952b8da8022adf494d835e81b0 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Mon, 1 Jun 2020 15:40:56 -0400
+Subject: [PATCH 301/312] [netdrv] net/mlx5e: Fix stats update for matchall
+ classifier
+
+Message-id: <20200601154102.25980-34-ahleihel@redhat.com>
+Patchwork-id: 315738
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1842258 33/39] net/mlx5e: Fix stats update for matchall classifier
+Bugzilla: 1842258
+RH-Acked-by: Honggang Li <honli@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1842258
+Upstream: v5.7
+
+commit 0a2a6f498fa060cc0d592d56148da856e9d77bd8
+Author: Roi Dayan <roid@mellanox.com>
+Date:   Wed May 27 21:46:09 2020 +0300
+
+    net/mlx5e: Fix stats update for matchall classifier
+
+    It's bytes, packets, lastused.
+
+    Fixes: fcb64c0f5640 ("net/mlx5: E-Switch, add ingress rate support")
+    Signed-off-by: Roi Dayan <roid@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index d4f2697d84d0..22b67563412d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -4588,7 +4588,7 @@ void mlx5e_tc_stats_matchall(struct mlx5e_priv *priv,
+ 	dpkts = cur_stats.rx_packets - rpriv->prev_vf_vport_stats.rx_packets;
+ 	dbytes = cur_stats.rx_bytes - rpriv->prev_vf_vport_stats.rx_bytes;
+ 	rpriv->prev_vf_vport_stats = cur_stats;
+-	flow_stats_update(&ma->stats, dpkts, dbytes, jiffies);
++	flow_stats_update(&ma->stats, dbytes, dpkts, jiffies);
+ }
+ 
+ static void mlx5e_tc_hairpin_update_dead_peer(struct mlx5e_priv *priv,
+-- 
+2.13.6
+

@@ -1,0 +1,65 @@
+From bff2d3c5ff056e1fec3983f032b93f35ac4d8560 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:49:15 -0400
+Subject: [PATCH 253/312] [netdrv] net/mlx5: Add missing inline to stub
+ esw_add_restore_rule
+
+Message-id: <20200519074934.6303-45-ahleihel@redhat.com>
+Patchwork-id: 310548
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 44/63] net/mlx5: Add missing inline to stub esw_add_restore_rule
+Bugzilla: 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Upstream: v5.7-rc1
+
+commit 9d3faa51bef05d21e908f2c1bd932a5cfac59b63
+Author: Nathan Chancellor <natechancellor@gmail.com>
+Date:   Fri Mar 13 20:40:20 2020 -0700
+
+    net/mlx5: Add missing inline to stub esw_add_restore_rule
+
+    When CONFIG_MLX5_ESWITCH is unset, clang warns:
+
+    In file included from drivers/net/ethernet/mellanox/mlx5/core/main.c:58:
+    drivers/net/ethernet/mellanox/mlx5/core/eswitch.h:670:1: warning: unused
+    function 'esw_add_restore_rule' [-Wunused-function]
+    esw_add_restore_rule(struct mlx5_eswitch *esw, u32 tag)
+    ^
+    1 warning generated.
+
+    This stub function is missing inline; add it to suppress the warning.
+
+    Fixes: 11b717d61526 ("net/mlx5: E-Switch, Get reg_c0 value on CQE")
+    Signed-off-by: Nathan Chancellor <natechancellor@gmail.com>
+    Reviewed-by: Nick Desaulniers <ndesaulniers@google.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index 79e4dfa5368d..dafeb2000269 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -711,7 +711,7 @@ static inline const u32 *mlx5_esw_query_functions(struct mlx5_core_dev *dev)
+ 
+ static inline void mlx5_eswitch_update_num_of_vfs(struct mlx5_eswitch *esw, const int num_vfs) {}
+ 
+-static struct mlx5_flow_handle *
++static inline struct mlx5_flow_handle *
+ esw_add_restore_rule(struct mlx5_eswitch *esw, u32 tag)
+ {
+ 	return ERR_PTR(-EOPNOTSUPP);
+-- 
+2.13.6
+

@@ -1,0 +1,80 @@
+From a41e9dba86d101d1d26eae83b2f4d9ad30d1cbfe Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:04:31 -0400
+Subject: [PATCH 107/312] [netdrv] net/mlx5: Don't write read-only fields in
+ MODIFY_HCA_VPORT_CONTEXT command
+
+Message-id: <20200510150452.10307-67-ahleihel@redhat.com>
+Patchwork-id: 306690
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 66/87] net/mlx5: Don't write read-only fields in MODIFY_HCA_VPORT_CONTEXT command
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5-rc1
+
+commit ab118da4c10a70b8437f5c90ab77adae1835963e
+Author: Leon Romanovsky <leonro@mellanox.com>
+Date:   Wed Nov 13 12:03:47 2019 +0200
+
+    net/mlx5: Don't write read-only fields in MODIFY_HCA_VPORT_CONTEXT command
+
+    The MODIFY_HCA_VPORT_CONTEXT uses field_selector to mask fields needed
+    to be written, other fields are required to be zero according to the
+    HW specification. The supported fields are controlled by bitfield
+    and limited to vport state, node and port GUIDs.
+
+    Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/vport.c | 27 +++++++------------------
+ 1 file changed, 7 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+index 30f7848a6f88..1faac31f74d0 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+@@ -1064,26 +1064,13 @@ int mlx5_core_modify_hca_vport_context(struct mlx5_core_dev *dev,
+ 
+ 	ctx = MLX5_ADDR_OF(modify_hca_vport_context_in, in, hca_vport_context);
+ 	MLX5_SET(hca_vport_context, ctx, field_select, req->field_select);
+-	MLX5_SET(hca_vport_context, ctx, sm_virt_aware, req->sm_virt_aware);
+-	MLX5_SET(hca_vport_context, ctx, has_smi, req->has_smi);
+-	MLX5_SET(hca_vport_context, ctx, has_raw, req->has_raw);
+-	MLX5_SET(hca_vport_context, ctx, vport_state_policy, req->policy);
+-	MLX5_SET(hca_vport_context, ctx, port_physical_state, req->phys_state);
+-	MLX5_SET(hca_vport_context, ctx, vport_state, req->vport_state);
+-	MLX5_SET64(hca_vport_context, ctx, port_guid, req->port_guid);
+-	MLX5_SET64(hca_vport_context, ctx, node_guid, req->node_guid);
+-	MLX5_SET(hca_vport_context, ctx, cap_mask1, req->cap_mask1);
+-	MLX5_SET(hca_vport_context, ctx, cap_mask1_field_select, req->cap_mask1_perm);
+-	MLX5_SET(hca_vport_context, ctx, cap_mask2, req->cap_mask2);
+-	MLX5_SET(hca_vport_context, ctx, cap_mask2_field_select, req->cap_mask2_perm);
+-	MLX5_SET(hca_vport_context, ctx, lid, req->lid);
+-	MLX5_SET(hca_vport_context, ctx, init_type_reply, req->init_type_reply);
+-	MLX5_SET(hca_vport_context, ctx, lmc, req->lmc);
+-	MLX5_SET(hca_vport_context, ctx, subnet_timeout, req->subnet_timeout);
+-	MLX5_SET(hca_vport_context, ctx, sm_lid, req->sm_lid);
+-	MLX5_SET(hca_vport_context, ctx, sm_sl, req->sm_sl);
+-	MLX5_SET(hca_vport_context, ctx, qkey_violation_counter, req->qkey_violation_counter);
+-	MLX5_SET(hca_vport_context, ctx, pkey_violation_counter, req->pkey_violation_counter);
++	if (req->field_select & MLX5_HCA_VPORT_SEL_STATE_POLICY)
++		MLX5_SET(hca_vport_context, ctx, vport_state_policy,
++			 req->policy);
++	if (req->field_select & MLX5_HCA_VPORT_SEL_PORT_GUID)
++		MLX5_SET64(hca_vport_context, ctx, port_guid, req->port_guid);
++	if (req->field_select & MLX5_HCA_VPORT_SEL_NODE_GUID)
++		MLX5_SET64(hca_vport_context, ctx, node_guid, req->node_guid);
+ 	err = mlx5_cmd_exec(dev, in, in_sz, out, sizeof(out));
+ ex:
+ 	kfree(in);
+-- 
+2.13.6
+

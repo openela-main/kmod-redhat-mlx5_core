@@ -1,0 +1,56 @@
+From c3fc6a1251852a166487548deb89993b88d2ca87 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:51:59 -0400
+Subject: [PATCH 035/312] [include] net/mlx5: Expose IP-in-IP capability bit
+
+Message-id: <20200510145245.10054-37-ahleihel@redhat.com>
+Patchwork-id: 306578
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 36/82] net/mlx5: Expose IP-in-IP capability bit
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc1
+
+commit caa1854735449d7afac6781679621fb9142fe810
+Author: Aya Levin <ayal@mellanox.com>
+Date:   Thu Aug 15 19:46:14 2019 +0000
+
+    net/mlx5: Expose IP-in-IP capability bit
+
+    Expose Fw indication that it supports Stateless Offloads for IP over IP
+    tunneled packets. The following offloads are supported for the inner
+    packets: RSS, RX & TX Checksum Offloads, LSO and Flow Steering.
+
+    Signed-off-by: Aya Levin <ayal@mellanox.com>
+    Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ include/linux/mlx5/mlx5_ifc.h | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 03cb1cf0e285..77c354384ce5 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -860,7 +860,9 @@ struct mlx5_ifc_per_protocol_networking_offload_caps_bits {
+ 	u8         swp_csum[0x1];
+ 	u8         swp_lso[0x1];
+ 	u8         cqe_checksum_full[0x1];
+-	u8         reserved_at_24[0xc];
++	u8         reserved_at_24[0x5];
++	u8         tunnel_stateless_ip_over_ip[0x1];
++	u8         reserved_at_2a[0x6];
+ 	u8         max_vxlan_udp_ports[0x8];
+ 	u8         reserved_at_38[0x6];
+ 	u8         max_geneve_opt_len[0x1];
+-- 
+2.13.6
+

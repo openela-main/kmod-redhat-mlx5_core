@@ -1,0 +1,56 @@
+From 043b6f1cc76176fae641bd0da12c4d7339f70fa4 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Mon, 1 Jun 2020 15:40:58 -0400
+Subject: [PATCH 303/312] [netdrv] net/mlx5e: Fix MLX5_TC_CT dependencies
+
+Message-id: <20200601154102.25980-36-ahleihel@redhat.com>
+Patchwork-id: 315741
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1842258 35/39] net/mlx5e: Fix MLX5_TC_CT dependencies
+Bugzilla: 1842258
+RH-Acked-by: Honggang Li <honli@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1842258
+Upstream: v5.7
+
+commit cb9a0641b531ac11cd7e3076de23ceada19b892e
+Author: Vlad Buslov <vladbu@mellanox.com>
+Date:   Mon May 25 16:57:51 2020 +0300
+
+    net/mlx5e: Fix MLX5_TC_CT dependencies
+
+    Change MLX5_TC_CT config dependencies to include MLX5_ESWITCH instead of
+    MLX5_CORE_EN && NET_SWITCHDEV, which are already required by MLX5_ESWITCH.
+    Without this change mlx5 fails to compile if user disables MLX5_ESWITCH
+    without also manually disabling MLX5_TC_CT.
+
+    Fixes: 4c3844d9e97e ("net/mlx5e: CT: Introduce connection tracking")
+    Signed-off-by: Vlad Buslov <vladbu@mellanox.com>
+    Reviewed-by: Roi Dayan <roid@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
+index e1dff89804f6..fa877f81b034 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
+@@ -79,7 +79,7 @@ config MLX5_ESWITCH
+ 
+ config MLX5_TC_CT
+ 	bool "MLX5 TC connection tracking offload support"
+-	depends on MLX5_CORE_EN && NET_SWITCHDEV && NF_FLOW_TABLE && NET_ACT_CT && NET_TC_SKB_EXT
++	depends on MLX5_ESWITCH && NF_FLOW_TABLE && NET_ACT_CT && NET_TC_SKB_EXT
+ 	default y
+ 	help
+ 	  Say Y here if you want to support offloading connection tracking rules
+-- 
+2.13.6
+

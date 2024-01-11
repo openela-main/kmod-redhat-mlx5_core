@@ -1,0 +1,82 @@
+From 5c6201319ca7491d4315c36b9d15d399c5158c6c Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:21 -0400
+Subject: [PATCH 154/312] [netdrv] net/mlx5: Fix sleep while atomic in
+ mlx5_eswitch_get_vepa
+
+Message-id: <20200512105530.4207-56-ahleihel@redhat.com>
+Patchwork-id: 306927
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 055/124] net/mlx5: Fix sleep while atomic in mlx5_eswitch_get_vepa
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.6-rc3
+
+commit 3d9c5e023a0dbf3e117bb416cfefd9405bf5af0c
+Author: Huy Nguyen <huyn@mellanox.com>
+Date:   Mon Feb 3 16:32:18 2020 -0600
+
+    net/mlx5: Fix sleep while atomic in mlx5_eswitch_get_vepa
+
+    rtnl_bridge_getlink is protected by rcu lock, so mlx5_eswitch_get_vepa
+    cannot take mutex lock. Two possible issues can happen:
+    1. User at the same time change vepa mode via RTM_SETLINK command.
+    2. User at the same time change the switchdev mode via devlink netlink
+    interface.
+
+    Case 1 cannot happen because rtnl executes one message in order.
+    Case 2 can happen but we do not expect user to change the switchdev mode
+    when changing vepa. Even if a user does it, so he will read a value
+    which is no longer valid.
+
+    Fixes: 8da202b24913 ("net/mlx5: E-Switch, Add support for VEPA in legacy mode.")
+    Signed-off-by: Huy Nguyen <huyn@mellanox.com>
+    Reviewed-by: Mark Bloch <markb@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 14 +++-----------
+ 1 file changed, 3 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 8e53bc0a6b6e..2151787235e0 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -2456,25 +2456,17 @@ int mlx5_eswitch_set_vepa(struct mlx5_eswitch *esw, u8 setting)
+ 
+ int mlx5_eswitch_get_vepa(struct mlx5_eswitch *esw, u8 *setting)
+ {
+-	int err = 0;
+-
+ 	if (!esw)
+ 		return -EOPNOTSUPP;
+ 
+ 	if (!ESW_ALLOWED(esw))
+ 		return -EPERM;
+ 
+-	mutex_lock(&esw->state_lock);
+-	if (esw->mode != MLX5_ESWITCH_LEGACY) {
+-		err = -EOPNOTSUPP;
+-		goto out;
+-	}
++	if (esw->mode != MLX5_ESWITCH_LEGACY)
++		return -EOPNOTSUPP;
+ 
+ 	*setting = esw->fdb_table.legacy.vepa_uplink_rule ? 1 : 0;
+-
+-out:
+-	mutex_unlock(&esw->state_lock);
+-	return err;
++	return 0;
+ }
+ 
+ int mlx5_eswitch_set_vport_trust(struct mlx5_eswitch *esw,
+-- 
+2.13.6
+

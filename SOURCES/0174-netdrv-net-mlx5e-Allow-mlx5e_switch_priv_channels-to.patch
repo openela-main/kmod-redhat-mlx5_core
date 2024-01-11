@@ -1,0 +1,119 @@
+From a60735875b83703004c3c0cefa1afe5c28bfbb7c Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:46 -0400
+Subject: [PATCH 174/312] [netdrv] net/mlx5e: Allow mlx5e_switch_priv_channels
+ to fail and recover
+
+Message-id: <20200512105530.4207-81-ahleihel@redhat.com>
+Patchwork-id: 306952
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 080/124] net/mlx5e: Allow mlx5e_switch_priv_channels to fail and recover
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.7-rc1
+
+commit 35a78ed4c351319e8840d99ba9032bf2d175e168
+Author: Maxim Mikityanskiy <maximmi@mellanox.com>
+Date:   Wed Nov 13 18:07:29 2019 +0200
+
+    net/mlx5e: Allow mlx5e_switch_priv_channels to fail and recover
+
+    Currently mlx5e_switch_priv_channels expects that the preactivate hook
+    doesn't fail, however, it can fail, because it may set hardware
+    parameters. This commit addresses this issue and provides a way to
+    recover from failures of the preactivate hook: the old channels are not
+    closed until the point where nothing can fail anymore, so in case
+    preactivate fails, the driver can roll back the old channels and
+    activate them again.
+
+    Signed-off-by: Maxim Mikityanskiy <maximmi@mellanox.com>
+    Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 34 ++++++++++++++++++-----
+ 1 file changed, 27 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index ae91592165ea..390db68727ff 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2955,33 +2955,45 @@ void mlx5e_deactivate_priv_channels(struct mlx5e_priv *priv)
+ 	mlx5e_deactivate_channels(&priv->channels);
+ }
+ 
+-static void mlx5e_switch_priv_channels(struct mlx5e_priv *priv,
+-				       struct mlx5e_channels *new_chs,
+-				       mlx5e_fp_preactivate preactivate)
++static int mlx5e_switch_priv_channels(struct mlx5e_priv *priv,
++				      struct mlx5e_channels *new_chs,
++				      mlx5e_fp_preactivate preactivate)
+ {
+ 	struct net_device *netdev = priv->netdev;
++	struct mlx5e_channels old_chs;
+ 	int carrier_ok;
++	int err = 0;
+ 
+ 	carrier_ok = netif_carrier_ok(netdev);
+ 	netif_carrier_off(netdev);
+ 
+ 	mlx5e_deactivate_priv_channels(priv);
+-	mlx5e_close_channels(&priv->channels);
+ 
++	old_chs = priv->channels;
+ 	priv->channels = *new_chs;
+ 
+ 	/* New channels are ready to roll, call the preactivate hook if needed
+ 	 * to modify HW settings or update kernel parameters.
+ 	 */
+-	if (preactivate)
+-		preactivate(priv);
++	if (preactivate) {
++		err = preactivate(priv);
++		if (err) {
++			priv->channels = old_chs;
++			goto out;
++		}
++	}
+ 
++	mlx5e_close_channels(&old_chs);
+ 	priv->profile->update_rx(priv);
++
++out:
+ 	mlx5e_activate_priv_channels(priv);
+ 
+ 	/* return carrier back if needed */
+ 	if (carrier_ok)
+ 		netif_carrier_on(netdev);
++
++	return err;
+ }
+ 
+ int mlx5e_safe_switch_channels(struct mlx5e_priv *priv,
+@@ -2994,8 +3006,16 @@ int mlx5e_safe_switch_channels(struct mlx5e_priv *priv,
+ 	if (err)
+ 		return err;
+ 
+-	mlx5e_switch_priv_channels(priv, new_chs, preactivate);
++	err = mlx5e_switch_priv_channels(priv, new_chs, preactivate);
++	if (err)
++		goto err_close;
++
+ 	return 0;
++
++err_close:
++	mlx5e_close_channels(new_chs);
++
++	return err;
+ }
+ 
+ int mlx5e_safe_reopen_channels(struct mlx5e_priv *priv)
+-- 
+2.13.6
+

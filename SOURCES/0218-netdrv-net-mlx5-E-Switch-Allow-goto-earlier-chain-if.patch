@@ -1,0 +1,88 @@
+From 1c159f98cdc32812823723ae87b853a0bfdb9e9e Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 19 May 2020 07:48:39 -0400
+Subject: [PATCH 218/312] [netdrv] net/mlx5: E-Switch, Allow goto earlier chain
+ if FW supports it
+
+Message-id: <20200519074934.6303-9-ahleihel@redhat.com>
+Patchwork-id: 310510
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1663246 08/63] net/mlx5: E-Switch, Allow goto earlier chain if FW supports it
+Bugzilla: 1663246
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+RH-Acked-by: Ivan Vecera <ivecera@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1663246
+Upstream: v5.7-rc1
+
+commit 297eaf5b952bcda4678ebc55177074d79263847f
+Author: Roi Dayan <roid@mellanox.com>
+Date:   Thu Feb 6 16:06:58 2020 +0200
+
+    net/mlx5: E-Switch, Allow goto earlier chain if FW supports it
+
+    Mellanox FW can support this if ignore_flow_level capability exists.
+
+    Signed-off-by: Roi Dayan <roid@mellanox.com>
+    Reviewed-by: Oz Shlomo <ozsh@mellanox.com>
+    Reviewed-by: Paul Blakey <paulb@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c                   | 3 ++-
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.c | 5 +++++
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.h | 2 ++
+ 3 files changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index 24f7af806da2..c5b6081a55d6 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -3544,7 +3544,8 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv,
+ 				NL_SET_ERR_MSG_MOD(extack, "Goto action is not supported");
+ 				return -EOPNOTSUPP;
+ 			}
+-			if (dest_chain <= attr->chain) {
++			if (!mlx5_esw_chains_backwards_supported(esw) &&
++			    dest_chain <= attr->chain) {
+ 				NL_SET_ERR_MSG(extack, "Goto earlier chain isn't supported");
+ 				return -EOPNOTSUPP;
+ 			}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.c
+index 483186883ac4..726d28ff0a65 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.c
+@@ -97,6 +97,11 @@ bool mlx5_esw_chains_prios_supported(struct mlx5_eswitch *esw)
+ 	return esw->fdb_table.flags & ESW_FDB_CHAINS_AND_PRIOS_SUPPORTED;
+ }
+ 
++bool mlx5_esw_chains_backwards_supported(struct mlx5_eswitch *esw)
++{
++	return fdb_ignore_flow_level_supported(esw);
++}
++
+ u32 mlx5_esw_chains_get_chain_range(struct mlx5_eswitch *esw)
+ {
+ 	if (!mlx5_esw_chains_prios_supported(esw))
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.h
+index 2e13097fe348..4ae2baf2a7a1 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_chains.h
+@@ -6,6 +6,8 @@
+ 
+ bool
+ mlx5_esw_chains_prios_supported(struct mlx5_eswitch *esw);
++bool
++mlx5_esw_chains_backwards_supported(struct mlx5_eswitch *esw);
+ u32
+ mlx5_esw_chains_get_prio_range(struct mlx5_eswitch *esw);
+ u32
+-- 
+2.13.6
+

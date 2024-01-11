@@ -1,0 +1,59 @@
+From dadbc13a9755555cbcbb92f39404308d3457b2f5 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Mon, 1 Jun 2020 15:40:48 -0400
+Subject: [PATCH 295/312] [netdrv] net/mlx5: DR: Fix incorrect type in return
+ expression
+
+Message-id: <20200601154102.25980-26-ahleihel@redhat.com>
+Patchwork-id: 315730
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1842258 25/39] net/mlx5: DR: Fix incorrect type in return expression
+Bugzilla: 1842258
+RH-Acked-by: Honggang Li <honli@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1842258
+Upstream: git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git , branch: master
+
+commit 9ff2e92c466dc1aa4d970e5027dfd66b1f32b7bc
+Author: Saeed Mahameed <saeedm@mellanox.com>
+Date:   Thu May 28 01:14:31 2020 -0700
+
+    net/mlx5: DR: Fix incorrect type in return expression
+
+    dr_ste_crc32_calc() calculates crc32 and should return it in HW format.
+    It is being used to calculate a u32 index, hence we force the return value
+    of u32 to avoid the sparse warning:
+
+    drivers/net/ethernet/mellanox/mlx5/core/steering/dr_ste.c:115:16:
+    warning: incorrect type in return expression (different base types)
+        expected unsigned int
+        got restricted __be32 [usertype]
+
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+    Reviewed-by: Mark Bloch <markb@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/steering/dr_ste.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_ste.c b/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_ste.c
+index e13ac84b56c6..a422a83ae541 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_ste.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_ste.c
+@@ -112,7 +112,7 @@ static u32 dr_ste_crc32_calc(const void *input_data, size_t length)
+ {
+ 	u32 crc = crc32(0, input_data, length);
+ 
+-	return htonl(crc);
++	return (__force u32)htonl(crc);
+ }
+ 
+ u32 mlx5dr_ste_calc_hash_index(u8 *hw_ste_p, struct mlx5dr_ste_htbl *htbl)
+-- 
+2.13.6
+

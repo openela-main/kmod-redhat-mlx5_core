@@ -1,0 +1,82 @@
+From 0bdc004c006f8c9aae2809e747b5d6025315e69c Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Wed, 22 Jul 2020 13:57:11 -0400
+Subject: [PATCH 313/313] [netdrv] net/mlx5e: Disable devlink port support for
+ non-switchdev mode
+
+Message-id: <20200722135711.29389-1-ahleihel@redhat.com>
+Patchwork-id: 322598
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1849623] net/mlx5e: Disable devlink port support for non-switchdev mode
+Bugzilla: 1858501 1852904 1849623
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Marcelo Leitner <mleitner@redhat.com>
+RH-Acked-by: John Linville <linville@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1849623
+Bugzilla: http://bugzilla.redhat.com/1852904
+Bugzilla: http://bugzilla.redhat.com/1858501
+Brew: https://brewweb.engineering.redhat.com/brew/taskinfo?taskID=30252169
+Upstream: RHEL-only
+Tested: Sanity tests and verified that netdev interface naming scheme
+        is now the same as we had in RHEL-8.2.
+
+After the discussion in BZ 1849623, it was decided to disable the
+'devlink port' support for non-switchdev mode in RHEL-8.3 since this
+feature changed the netdev interface naming scheme; the interfaces
+started to get an 'npX' suffix, which could cause issues for users
+who relied on driver-given names and did not set the names in ifcfg
+files or udev rules, etc.
+
+This patch essentially reverts the following commits but with minimal
+code changes to avoid future conflicts:
+ 2c1f000844a5 [netdrv] net/mlx5e: Fix devlink port register sequence
+ f30a3e5bd818 [netdrv] net/mlx5e: Use devlink virtual flavour for VF devlink port
+ 7712d03e7e53 [netdrv] net/mlx5e: Add support for devlink-port in non-representors mode
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en/devlink.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en/devlink.c b/drivers/net/ethernet/mellanox/mlx5/core/en/devlink.c
+index f8b2de4b04be..d31f5d0c29ee 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en/devlink.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en/devlink.c
+@@ -7,6 +7,8 @@ int mlx5e_devlink_port_register(struct mlx5e_priv *priv)
+ {
+ 	struct devlink *devlink = priv_to_devlink(priv->mdev);
+ 
++	return 0; /* RHEL-only: Disable 'devlink port' support for non-switchdev mode*/
++
+ 	if (mlx5_core_is_pf(priv->mdev))
+ 		devlink_port_attrs_set(&priv->dl_port,
+ 				       DEVLINK_PORT_FLAVOUR_PHYSICAL,
+@@ -23,11 +25,15 @@ int mlx5e_devlink_port_register(struct mlx5e_priv *priv)
+ 
+ void mlx5e_devlink_port_type_eth_set(struct mlx5e_priv *priv)
+ {
++	return; /* RHEL-only: Disable 'devlink port' support for non-switchdev mode*/
++
+ 	devlink_port_type_eth_set(&priv->dl_port, priv->netdev);
+ }
+ 
+ void mlx5e_devlink_port_unregister(struct mlx5e_priv *priv)
+ {
++	return; /* RHEL-only: Disable 'devlink port' support for non-switchdev mode*/
++
+ 	devlink_port_unregister(&priv->dl_port);
+ }
+ 
+@@ -35,5 +41,7 @@ struct devlink_port *mlx5e_get_devlink_port(struct net_device *dev)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
+ 
++	return NULL; /* RHEL-only: Disable 'devlink port' support for non-switchdev mode*/
++
+ 	return &priv->dl_port;
+ }
+-- 
+2.13.6
+

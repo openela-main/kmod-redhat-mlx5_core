@@ -1,0 +1,82 @@
+From aacd036ff4feac42054a90ce1974adab336b723c Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:04:21 -0400
+Subject: [PATCH 100/312] [netdrv] net/mlx5: Simplify fdb chain and prio
+ eswitch defines
+
+Message-id: <20200510150452.10307-57-ahleihel@redhat.com>
+Patchwork-id: 306682
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 56/87] net/mlx5: Simplify fdb chain and prio eswitch defines
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5-rc1
+
+commit 12063c2e4c0e38f36c0e6f0942cd138feed022b3
+Author: Paul Blakey <paulb@mellanox.com>
+Date:   Tue Nov 12 00:34:24 2019 +0100
+
+    net/mlx5: Simplify fdb chain and prio eswitch defines
+
+    FDB_MAX_CHAIN and FDB_MAX_PRIO were defined differently depending
+    on if CONFIG_MLX5_ESWITCH is enabled to save space on allocations.
+
+    This is a minor space saving, and there is no real need for it.
+    Simplify things instead, and define them the same in both cases.
+
+    Signed-off-by: Paul Blakey <paulb@mellanox.com>
+    Reviewed-by: Mark Bloch <markb@mellanox.com>
+    Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h | 12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index 963d0df0d66b..628925cb385f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -43,6 +43,10 @@
+ #include <linux/mlx5/fs.h>
+ #include "lib/mpfs.h"
+ 
++#define FDB_MAX_CHAIN 3
++#define FDB_SLOW_PATH_CHAIN (FDB_MAX_CHAIN + 1)
++#define FDB_MAX_PRIO 16
++
+ #ifdef CONFIG_MLX5_ESWITCH
+ 
+ #define MLX5_MAX_UC_PER_VPORT(dev) \
+@@ -59,10 +63,6 @@
+ #define mlx5_esw_has_fwd_fdb(dev) \
+ 	MLX5_CAP_ESW_FLOWTABLE(dev, fdb_multi_path_to_table)
+ 
+-#define FDB_MAX_CHAIN 3
+-#define FDB_SLOW_PATH_CHAIN (FDB_MAX_CHAIN + 1)
+-#define FDB_MAX_PRIO 16
+-
+ struct vport_ingress {
+ 	struct mlx5_flow_table *acl;
+ #ifdef __GENKSYMS__
+@@ -656,10 +656,6 @@ static inline const u32 *mlx5_esw_query_functions(struct mlx5_core_dev *dev)
+ 
+ static inline void mlx5_eswitch_update_num_of_vfs(struct mlx5_eswitch *esw, const int num_vfs) {}
+ 
+-#define FDB_MAX_CHAIN 1
+-#define FDB_SLOW_PATH_CHAIN (FDB_MAX_CHAIN + 1)
+-#define FDB_MAX_PRIO 1
+-
+ #endif /* CONFIG_MLX5_ESWITCH */
+ 
+ #endif /* __MLX5_ESWITCH_H__ */
+-- 
+2.13.6
+

@@ -1,0 +1,107 @@
+From 8a64a8edf2727554f374f0b99dab8a00b167655c Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:54:54 -0400
+Subject: [PATCH 182/312] [netdrv] net/mlx5e: Use netdev_warn() for errors for
+ added prefix
+
+Message-id: <20200512105530.4207-89-ahleihel@redhat.com>
+Patchwork-id: 306960
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 088/124] net/mlx5e: Use netdev_warn() for errors for added prefix
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.7-rc1
+
+commit 237ac8ded45c803f409df74946f48dfafee18140
+Author: Roi Dayan <roid@mellanox.com>
+Date:   Wed Dec 25 17:03:35 2019 +0200
+
+    net/mlx5e: Use netdev_warn() for errors for added prefix
+
+    This helps identify the source of the message.
+    If netdev still doesn't exists use mlx5_core_warn().
+
+    Signed-off-by: Roi Dayan <roid@mellanox.com>
+    Reviewed-by: Vlad Buslov <vladbu@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c | 27 ++++++++++++++----------
+ 1 file changed, 16 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index 7d12e20e4582..5c9b67b71456 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -190,7 +190,8 @@ static MLX5E_DECLARE_STATS_GRP_OP_UPDATE_STATS(vport_rep)
+ 
+ 	err = mlx5_eswitch_get_vport_stats(esw, rep->vport, &vf_stats);
+ 	if (err) {
+-		pr_warn("vport %d error %d reading stats\n", rep->vport, err);
++		netdev_warn(priv->netdev, "vport %d error %d reading stats\n",
++			    rep->vport, err);
+ 		return;
+ 	}
+ 
+@@ -1986,8 +1987,9 @@ mlx5e_vport_rep_load(struct mlx5_core_dev *dev, struct mlx5_eswitch_rep *rep)
+ 		  &mlx5e_uplink_rep_profile : &mlx5e_rep_profile;
+ 	netdev = mlx5e_create_netdev(dev, profile, nch, rpriv);
+ 	if (!netdev) {
+-		pr_warn("Failed to create representor netdev for vport %d\n",
+-			rep->vport);
++		mlx5_core_warn(dev,
++			       "Failed to create representor netdev for vport %d\n",
++			       rep->vport);
+ 		kfree(rpriv);
+ 		return -EINVAL;
+ 	}
+@@ -2004,29 +2006,32 @@ mlx5e_vport_rep_load(struct mlx5_core_dev *dev, struct mlx5_eswitch_rep *rep)
+ 
+ 	err = mlx5e_attach_netdev(netdev_priv(netdev));
+ 	if (err) {
+-		pr_warn("Failed to attach representor netdev for vport %d\n",
+-			rep->vport);
++		netdev_warn(netdev,
++			    "Failed to attach representor netdev for vport %d\n",
++			    rep->vport);
+ 		goto err_destroy_mdev_resources;
+ 	}
+ 
+ 	err = mlx5e_rep_neigh_init(rpriv);
+ 	if (err) {
+-		pr_warn("Failed to initialized neighbours handling for vport %d\n",
+-			rep->vport);
++		netdev_warn(netdev,
++			    "Failed to initialized neighbours handling for vport %d\n",
++			    rep->vport);
+ 		goto err_detach_netdev;
+ 	}
+ 
+ 	err = register_devlink_port(dev, rpriv);
+ 	if (err) {
+-		esw_warn(dev, "Failed to register devlink port %d\n",
+-			 rep->vport);
++		netdev_warn(netdev, "Failed to register devlink port %d\n",
++			    rep->vport);
+ 		goto err_neigh_cleanup;
+ 	}
+ 
+ 	err = register_netdev(netdev);
+ 	if (err) {
+-		pr_warn("Failed to register representor netdev for vport %d\n",
+-			rep->vport);
++		netdev_warn(netdev,
++			    "Failed to register representor netdev for vport %d\n",
++			    rep->vport);
+ 		goto err_devlink_cleanup;
+ 	}
+ 
+-- 
+2.13.6
+

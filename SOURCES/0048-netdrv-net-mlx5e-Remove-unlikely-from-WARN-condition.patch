@@ -1,0 +1,60 @@
+From 3315feb7c1bc069a18103195cb16ba3d37f78adf Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:52:20 -0400
+Subject: [PATCH 048/312] [netdrv] net/mlx5e: Remove unlikely() from WARN*()
+ condition
+
+Message-id: <20200510145245.10054-58-ahleihel@redhat.com>
+Patchwork-id: 306598
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 57/82] net/mlx5e: Remove unlikely() from WARN*() condition
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc1
+
+commit 7cf92ccb85554c9550bc0a8e892f68f92985024c
+Author: Denis Efremov <efremov@linux.com>
+Date:   Thu Aug 29 19:50:17 2019 +0300
+
+    net/mlx5e: Remove unlikely() from WARN*() condition
+
+    "unlikely(WARN_ON_ONCE(x))" is excessive. WARN_ON_ONCE() already uses
+    unlikely() internally.
+
+    Signed-off-by: Denis Efremov <efremov@linux.com>
+    Cc: Boris Pismenny <borisp@mellanox.com>
+    Cc: Saeed Mahameed <saeedm@mellanox.com>
+    Cc: Leon Romanovsky <leon@kernel.org>
+    Cc: Joe Perches <joe@perches.com>
+    Cc: Andrew Morton <akpm@linux-foundation.org>
+    Cc: netdev@vger.kernel.org
+    Acked-by: Saeed Mahameed <saeedm@mellanox.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c
+index 7833ddef0427..e5222d17df35 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ktls_tx.c
+@@ -408,7 +408,7 @@ struct sk_buff *mlx5e_ktls_handle_tx_skb(struct net_device *netdev,
+ 		goto out;
+ 
+ 	tls_ctx = tls_get_ctx(skb->sk);
+-	if (unlikely(WARN_ON_ONCE(tls_ctx->netdev != netdev)))
++	if (WARN_ON_ONCE(tls_ctx->netdev != netdev))
+ 		goto err_out;
+ 
+ 	priv_tx = mlx5e_get_ktls_tx_priv_ctx(tls_ctx);
+-- 
+2.13.6
+

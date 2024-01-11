@@ -1,0 +1,55 @@
+From a0952a05dcb2a18564f90d1181591f7682cc9728 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:51:24 -0400
+Subject: [PATCH 007/312] [netdrv] net: Use skb accessors in network drivers
+
+Message-id: <20200510145245.10054-2-ahleihel@redhat.com>
+Patchwork-id: 306543
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 01/82] net: Use skb accessors in network drivers
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc1
+Conflicts:
+ - Take mlx5 changes only.
+
+commit d7840976e3915669382c62ddd1700960f348328e
+Author: Matthew Wilcox (Oracle) <willy@infradead.org>
+Date:   Mon Jul 22 20:08:25 2019 -0700
+
+    net: Use skb accessors in network drivers
+
+    In preparation for unifying the skb_frag and bio_vec, use the fine
+    accessors which already exist and use skb_frag_t instead of
+    struct skb_frag_struct.
+
+    Signed-off-by: Matthew Wilcox (Oracle) <willy@infradead.org>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index 79f891c627da..5be0bad6d359 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -211,7 +211,7 @@ mlx5e_txwqe_build_dsegs(struct mlx5e_txqsq *sq, struct sk_buff *skb,
+ 	}
+ 
+ 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+-		struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[i];
++		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+ 		int fsz = skb_frag_size(frag);
+ 
+ 		dma_addr = skb_frag_dma_map(sq->pdev, frag, 0, fsz,
+-- 
+2.13.6
+

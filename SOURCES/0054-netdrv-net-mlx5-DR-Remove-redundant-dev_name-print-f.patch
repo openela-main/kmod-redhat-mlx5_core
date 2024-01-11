@@ -1,0 +1,89 @@
+From 162279e737c8768b4fc24255dd3786b7012d0945 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 14:52:27 -0400
+Subject: [PATCH 054/312] [netdrv] net/mlx5: DR, Remove redundant dev_name
+ print from err log
+
+Message-id: <20200510145245.10054-65-ahleihel@redhat.com>
+Patchwork-id: 306605
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789378 v2 64/82] net/mlx5: DR, Remove redundant dev_name print from err log
+Bugzilla: 1789378
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789378
+Upstream: v5.4-rc1
+
+commit 63d67f3059291e24bd7a2fa3f5eb7395442e8f90
+Author: Saeed Mahameed <saeedm@mellanox.com>
+Date:   Thu Sep 5 12:34:36 2019 -0700
+
+    net/mlx5: DR, Remove redundant dev_name print from err log
+
+    mlx5_core_err already prints the name of the device.
+
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ .../net/ethernet/mellanox/mlx5/core/steering/dr_domain.c  | 15 +++++----------
+ 1 file changed, 5 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_domain.c b/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_domain.c
+index 791c3674aed1..a9da961d4d2f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_domain.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_domain.c
+@@ -72,24 +72,21 @@ static int dr_domain_init_resources(struct mlx5dr_domain *dmn)
+ 
+ 	dmn->ste_icm_pool = mlx5dr_icm_pool_create(dmn, DR_ICM_TYPE_STE);
+ 	if (!dmn->ste_icm_pool) {
+-		mlx5dr_err(dmn, "Couldn't get icm memory for %s\n",
+-			   dev_name(dmn->mdev->device));
++		mlx5dr_err(dmn, "Couldn't get icm memory\n");
+ 		ret = -ENOMEM;
+ 		goto clean_uar;
+ 	}
+ 
+ 	dmn->action_icm_pool = mlx5dr_icm_pool_create(dmn, DR_ICM_TYPE_MODIFY_ACTION);
+ 	if (!dmn->action_icm_pool) {
+-		mlx5dr_err(dmn, "Couldn't get action icm memory for %s\n",
+-			   dev_name(dmn->mdev->device));
++		mlx5dr_err(dmn, "Couldn't get action icm memory\n");
+ 		ret = -ENOMEM;
+ 		goto free_ste_icm_pool;
+ 	}
+ 
+ 	ret = mlx5dr_send_ring_alloc(dmn);
+ 	if (ret) {
+-		mlx5dr_err(dmn, "Couldn't create send-ring for %s\n",
+-			   dev_name(dmn->mdev->device));
++		mlx5dr_err(dmn, "Couldn't create send-ring\n");
+ 		goto free_action_icm_pool;
+ 	}
+ 
+@@ -312,16 +309,14 @@ mlx5dr_domain_create(struct mlx5_core_dev *mdev, enum mlx5dr_domain_type type)
+ 					    dmn->info.caps.log_icm_size);
+ 
+ 	if (!dmn->info.supp_sw_steering) {
+-		mlx5dr_err(dmn, "SW steering not supported for %s\n",
+-			   dev_name(mdev->device));
++		mlx5dr_err(dmn, "SW steering is not supported\n");
+ 		goto uninit_caps;
+ 	}
+ 
+ 	/* Allocate resources */
+ 	ret = dr_domain_init_resources(dmn);
+ 	if (ret) {
+-		mlx5dr_err(dmn, "Failed init domain resources for %s\n",
+-			   dev_name(mdev->device));
++		mlx5dr_err(dmn, "Failed init domain resources\n");
+ 		goto uninit_caps;
+ 	}
+ 
+-- 
+2.13.6
+

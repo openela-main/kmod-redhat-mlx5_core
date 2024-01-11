@@ -1,0 +1,74 @@
+From 5391a9ae3e19dbb7bd9d314271ec510177f9d8ca Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Tue, 12 May 2020 10:55:18 -0400
+Subject: [PATCH 202/312] [netdrv] net/mlx5e: Get the latest values from
+ counters in switchdev mode
+
+Message-id: <20200512105530.4207-113-ahleihel@redhat.com>
+Patchwork-id: 306985
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789382 112/124] net/mlx5e: Get the latest values from counters in switchdev mode
+Bugzilla: 1789382
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789382
+Upstream: v5.7-rc3
+
+commit dcdf4ce0ff4ba206fc362e149c8ae81d6a2f849c
+Author: Zhu Yanjun <yanjunz@mellanox.com>
+Date:   Wed Apr 8 14:51:52 2020 +0800
+
+    net/mlx5e: Get the latest values from counters in switchdev mode
+
+    In the switchdev mode, when running "cat
+    /sys/class/net/NIC/statistics/tx_packets", the ppcnt register is
+    accessed to get the latest values. But currently this command can
+    not get the correct values from ppcnt.
+
+    From firmware manual, before getting the 802_3 counters, the 802_3
+    data layout should be set to the ppcnt register.
+
+    When the command "cat /sys/class/net/NIC/statistics/tx_packets" is
+    run, before updating 802_3 data layout with ppcnt register, the
+    monitor counters are tested. The test result will decide the
+    802_3 data layout is updated or not.
+
+    Actually the monitor counters do not support to monitor rx/tx
+    stats of 802_3 in switchdev mode. So the rx/tx counters change
+    will not trigger monitor counters. So the 802_3 data layout will
+    not be updated in ppcnt register. Finally this command can not get
+    the latest values from ppcnt register with 802_3 data layout.
+
+    Fixes: 5c7e8bbb0257 ("net/mlx5e: Use monitor counters for update stats")
+    Signed-off-by: Zhu Yanjun <yanjunz@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 0d50ee4fd986..22298f67fbd2 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -3584,7 +3584,12 @@ mlx5e_get_stats(struct net_device *dev, struct rtnl_link_stats64 *stats)
+ 	struct mlx5e_vport_stats *vstats = &priv->stats.vport;
+ 	struct mlx5e_pport_stats *pstats = &priv->stats.pport;
+ 
+-	if (!mlx5e_monitor_counter_supported(priv)) {
++	/* In switchdev mode, monitor counters doesn't monitor
++	 * rx/tx stats of 802_3. The update stats mechanism
++	 * should keep the 802_3 layout counters updated
++	 */
++	if (!mlx5e_monitor_counter_supported(priv) ||
++	    mlx5e_is_uplink_rep(priv)) {
+ 		/* update HW stats in background for next time */
+ 		mlx5e_queue_update_stats(priv);
+ 	}
+-- 
+2.13.6
+

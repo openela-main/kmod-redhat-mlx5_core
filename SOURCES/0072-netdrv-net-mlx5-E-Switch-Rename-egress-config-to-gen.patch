@@ -1,0 +1,137 @@
+From 68272c4fdf21f6aa6e587a2b4eb9e8ed14a7b7d6 Mon Sep 17 00:00:00 2001
+From: Alaa Hleihel <ahleihel@redhat.com>
+Date: Sun, 10 May 2020 15:03:49 -0400
+Subject: [PATCH 072/312] [netdrv] net/mlx5: E-Switch, Rename egress config to
+ generic name
+
+Message-id: <20200510150452.10307-25-ahleihel@redhat.com>
+Patchwork-id: 306648
+Patchwork-instance: patchwork
+O-Subject: [RHEL8.3 BZ 1789380 v2 24/87] net/mlx5: E-Switch, Rename egress config to generic name
+Bugzilla: 1789380
+RH-Acked-by: Kamal Heib <kheib@redhat.com>
+RH-Acked-by: Jarod Wilson <jarod@redhat.com>
+RH-Acked-by: Tony Camuso <tcamuso@redhat.com>
+RH-Acked-by: Jonathan Toppins <jtoppins@redhat.com>
+
+Bugzilla: http://bugzilla.redhat.com/1789380
+Upstream: v5.5-rc1
+
+commit 6d94e610e4b6a77007d50952d3c859d3e300c0ab
+Author: Vu Pham <vuhuong@mellanox.com>
+Date:   Mon Oct 28 23:34:58 2019 +0000
+
+    net/mlx5: E-Switch, Rename egress config to generic name
+
+    Refactor vport egress config in offloads mode
+
+    Refactoring vport egress configuration in offloads mode that
+    includes egress prio tag configuration.
+    This makes code symmetric to ingress configuration.
+
+    Signed-off-by: Vu Pham <vuhuong@mellanox.com>
+    Reviewed-by: Parav Pandit <parav@mellanox.com>
+    Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+Signed-off-by: Alaa Hleihel <ahleihel@redhat.com>
+Signed-off-by: Frantisek Hrbata <fhrbata@redhat.com>
+---
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 50 +++++++++++-----------
+ 1 file changed, 26 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index fa3249964ee9..b41b0c868099 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -1866,32 +1866,16 @@ static int esw_vport_egress_prio_tag_config(struct mlx5_eswitch *esw,
+ 	struct mlx5_flow_spec *spec;
+ 	int err = 0;
+ 
+-	if (!MLX5_CAP_GEN(esw->dev, prio_tag_required))
+-		return 0;
+-
+ 	/* For prio tag mode, there is only 1 FTEs:
+ 	 * 1) prio tag packets - pop the prio tag VLAN, allow
+ 	 * Unmatched traffic is allowed by default
+ 	 */
+-
+-	esw_vport_cleanup_egress_rules(esw, vport);
+-
+-	err = esw_vport_enable_egress_acl(esw, vport);
+-	if (err) {
+-		mlx5_core_warn(esw->dev,
+-			       "failed to enable egress acl (%d) on vport[%d]\n",
+-			       err, vport->vport);
+-		return err;
+-	}
+-
+ 	esw_debug(esw->dev,
+ 		  "vport[%d] configure prio tag egress rules\n", vport->vport);
+ 
+ 	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
+-	if (!spec) {
+-		err = -ENOMEM;
+-		goto out_no_mem;
+-	}
++	if (!spec)
++		return -ENOMEM;
+ 
+ 	/* prio tag vlan rule - pop it so VF receives untagged packets */
+ 	MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria, outer_headers.cvlan_tag);
+@@ -1911,14 +1895,9 @@ static int esw_vport_egress_prio_tag_config(struct mlx5_eswitch *esw,
+ 			 "vport[%d] configure egress pop prio tag vlan rule failed, err(%d)\n",
+ 			 vport->vport, err);
+ 		vport->egress.allowed_vlan = NULL;
+-		goto out;
+ 	}
+ 
+-out:
+ 	kvfree(spec);
+-out_no_mem:
+-	if (err)
+-		esw_vport_cleanup_egress_rules(esw, vport);
+ 	return err;
+ }
+ 
+@@ -1963,6 +1942,29 @@ static int esw_vport_ingress_common_config(struct mlx5_eswitch *esw,
+ 	return err;
+ }
+ 
++static int esw_vport_egress_config(struct mlx5_eswitch *esw,
++				   struct mlx5_vport *vport)
++{
++	int err;
++
++	if (!MLX5_CAP_GEN(esw->dev, prio_tag_required))
++		return 0;
++
++	esw_vport_cleanup_egress_rules(esw, vport);
++
++	err = esw_vport_enable_egress_acl(esw, vport);
++	if (err)
++		return err;
++
++	esw_debug(esw->dev, "vport(%d) configure egress rules\n", vport->vport);
++
++	err = esw_vport_egress_prio_tag_config(esw, vport);
++	if (err)
++		esw_vport_disable_egress_acl(esw, vport);
++
++	return err;
++}
++
+ static bool
+ esw_check_vport_match_metadata_supported(const struct mlx5_eswitch *esw)
+ {
+@@ -2010,7 +2012,7 @@ static int esw_create_offloads_acl_tables(struct mlx5_eswitch *esw)
+ 			goto err_ingress;
+ 
+ 		if (mlx5_eswitch_is_vf_vport(esw, vport->vport)) {
+-			err = esw_vport_egress_prio_tag_config(esw, vport);
++			err = esw_vport_egress_config(esw, vport);
+ 			if (err)
+ 				goto err_egress;
+ 		}
+-- 
+2.13.6
+
